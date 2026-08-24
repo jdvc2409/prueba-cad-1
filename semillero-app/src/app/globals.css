@@ -1,0 +1,109 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-base: #061827;
+  --color-surface: #0b2438;
+  --color-surface-raised: #0e2c44;
+  --color-action: #1267b1;
+  --color-tech: #168dd0;
+  --color-cyan: #35c4e8;
+  --color-ice: #ddf4ff;
+  --color-ink: #f5fafd;
+  --color-muted: #9cb6c8;
+  --color-line: rgba(117, 186, 224, 0.18);
+  --color-danger: #ef6a6a;
+  --color-ok: #58c7a2;
+  --font-heading: var(--font-space-grotesk), "Space Grotesk", sans-serif;
+  --font-body: var(--font-inter), "Inter", sans-serif;
+}
+
+* {
+  border-color: var(--color-line);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--color-base);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+}
+
+h1, h2, h3, h4, .font-heading {
+  font-family: var(--font-heading);
+}
+
+::selection {
+  background: var(--color-tech);
+  color: var(--color-base);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-base);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-surface-raised);
+  border-radius: 8px;
+  border: 2px solid var(--color-base);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-action);
+}
+
+.grid-pattern {
+  background-image:
+    linear-gradient(rgba(117, 186, 224, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(117, 186, 224, 0.07) 1px, transparent 1px);
+  background-size: 42px 42px;
+}
+
+.hero-gradient {
+  background:
+    radial-gradient(circle at 70% 20%, rgba(22, 141, 208, 0.22), transparent 40%),
+    radial-gradient(circle at 15% 80%, rgba(53, 196, 232, 0.12), transparent 45%),
+    linear-gradient(135deg, #061827 0%, #081f33 55%, #0a2942 100%);
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(53, 196, 232, 0.45);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(53, 196, 232, 0);
+  }
+}
+.pulse-glow {
+  animation: pulse-glow 2.4s ease-in-out infinite;
+}
+
+@keyframes drift {
+  0% { transform: translate(0, 0); }
+  50% { transform: translate(12px, -14px); }
+  100% { transform: translate(0, 0); }
+}
+.drift {
+  animation: drift 9s ease-in-out infinite;
+}
+
+@keyframes dash {
+  to { stroke-dashoffset: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+.react-flow__attribution {
+  display: none;
+}
