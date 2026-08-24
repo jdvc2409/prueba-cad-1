@@ -15,7 +15,7 @@ import type {
   IntroItem,
   NodeStatus,
 } from "@/lib/types";
-import { canFinishJourney } from "@/lib/unlock";
+import { canFinishJourney, computeStatus } from "@/lib/unlock";
 import { isValidCandidateProfile } from "@/lib/admissions";
 
 const STORAGE_KEY = "semillero-app-state-v1";
@@ -232,7 +232,13 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
 
   const completeNode = useCallback((nodeId: string) => {
     commitState((prev) => {
-      if (prev.submitted || !isValidCandidateProfile(prev.profile)) return prev;
+      if (
+        prev.submitted ||
+        !isValidCandidateProfile(prev.profile) ||
+        computeStatus(nodeId, prev.progress) !== "available"
+      ) {
+        return prev;
+      }
       return {
         ...prev,
         progress: { ...prev.progress, [nodeId]: "completed" as NodeStatus },

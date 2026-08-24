@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useReducedMotion } from "framer-motion";
 import { BranchIcon } from "@/components/icons/BranchIcon";
 import { BRANCHES, BRANCH_ORDER } from "@/lib/data/branches";
 import { IR_NODE, SKILL_NODES } from "@/lib/data/nodes";
@@ -100,45 +101,112 @@ function TreeConnector({
   fromCount,
   toCount,
   color,
-  muted,
+  targetStatuses,
 }: {
   fromCount: number;
   toCount: number;
   color: string;
-  muted: boolean;
+  targetStatuses: NodeStatus[];
 }) {
-  const sourcePoints = fromCount > 1 ? ["25%", "75%"] : ["50%"];
-  const targetPoints = toCount > 1 ? ["25%", "75%"] : ["50%"];
-  const lineColor = muted ? "rgba(117, 186, 224, 0.22)" : color;
-  const glow = muted ? "none" : `0 0 9px ${color}70`;
+  const prefersReducedMotion = useReducedMotion();
+  const sourcePoints = fromCount > 1 ? [25, 75] : [50];
+  const targetPoints = toCount > 1 ? [25, 75] : [50];
+  const paths =
+    sourcePoints.length === targetPoints.length
+      ? sourcePoints.map((source, index) => [source, targetPoints[index], index] as const)
+      : sourcePoints.length === 1
+        ? targetPoints.map((target, index) => [sourcePoints[0], target, index] as const)
+        : targetPoints.length === 1
+          ? sourcePoints.map((source) => [source, targetPoints[0], 0] as const)
+          : sourcePoints.flatMap((source) =>
+              targetPoints.map((target, index) => [source, target, index] as const)
+            );
 
   return (
-    <div aria-hidden="true" className="relative mx-auto h-12 w-full max-w-[21rem]">
-      {sourcePoints.map((left) => (
-        <span
-          key={`source-${left}`}
-          className="absolute top-0 h-1/2 w-px -translate-x-1/2"
-          style={{ left, background: lineColor, boxShadow: glow }}
-        />
-      ))}
-      {(fromCount > 1 || toCount > 1) && (
-        <span
-          className="absolute left-1/4 right-1/4 top-1/2 h-px -translate-y-1/2"
-          style={{ background: lineColor, boxShadow: glow }}
-        />
-      )}
-      {targetPoints.map((left) => (
-        <span
-          key={`target-${left}`}
-          className="absolute bottom-0 top-1/2 w-px -translate-x-1/2"
-          style={{ left, background: lineColor, boxShadow: glow }}
-        />
-      ))}
-      <span
-        className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full border"
-        style={{ borderColor: lineColor, background: "#061827" }}
-      />
-    </div>
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 100 48"
+      preserveAspectRatio="none"
+      className="mx-auto h-12 w-full max-w-[21rem] overflow-visible"
+    >
+      {paths.map(([source, target, targetIndex], index) => {
+        const status = targetStatuses[targetIndex] ?? "locked";
+        const locked = status === "locked";
+        const completed = status === "completed";
+        const baseOpacity = locked ? 0.34 : completed ? 0.86 : 0.66;
+        const baseWidth = locked ? 1.15 : completed ? 1.85 : 1.55;
+        const path = `M ${source} 0 V 22 Q ${source} 24 ${source + Math.sign(target - source) * 2} 24 H ${target - Math.sign(target - source) * 2} Q ${target} 24 ${target} 26 V 48`;
+
+        return (
+          <g key={`${source}-${target}-${index}`}>
+            {!locked && (
+              <path
+                d={path}
+                fill="none"
+                stroke={color}
+                strokeWidth={baseWidth + 4}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                vectorEffect="non-scaling-stroke"
+                opacity={completed ? 0.09 : 0.055}
+              />
+            )}
+            <path
+              d={path}
+              fill="none"
+              stroke={color}
+              strokeWidth={baseWidth}
+              strokeDasharray={locked ? "3 6" : undefined}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              vectorEffect="non-scaling-stroke"
+              opacity={baseOpacity}
+            />
+            {!locked && !prefersReducedMotion && (
+              <path
+                d={path}
+                fill="none"
+                stroke="#e5edf7"
+                strokeWidth={completed ? 0.95 : 0.8}
+                strokeDasharray="2 11"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                vectorEffect="non-scaling-stroke"
+                opacity={completed ? 0.72 : 0.56}
+              >
+                <animate
+                  attributeName="stroke-dashoffset"
+                  from="0"
+                  to="-26"
+                  dur={`${completed ? 1.25 : 1.5}s`}
+                  begin={`${index * 0.08}s`}
+                  repeatCount="indefinite"
+                />
+              </path>
+            )}
+          </g>
+        );
+      })}
+      {targetPoints.map((target, index) => {
+        const status = targetStatuses[index] ?? "locked";
+        const locked = status === "locked";
+        const completed = status === "completed";
+
+        return (
+          <path
+            key={`direction-${target}`}
+            d={`M ${target - 1.7} 43.5 L ${target} 47 L ${target + 1.7} 43.5`}
+            fill="none"
+            stroke={color}
+            strokeWidth={locked ? 1.1 : 1.45}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            vectorEffect="non-scaling-stroke"
+            opacity={locked ? 0.42 : completed ? 0.92 : 0.76}
+          />
+        );
+      })}
+    </svg>
   );
 }
 
@@ -235,23 +303,76 @@ function SkillTreeNode({
   );
 }
 
-function ConvergenceGraphic() {
+function ConvergenceGraphic({ active }: { active: boolean }) {
+  const prefersReducedMotion = useReducedMotion();
+
   return (
-    <div aria-hidden="true" className="relative mx-auto h-16 w-full max-w-[19rem]">
-      <span className="absolute left-[7%] right-[7%] top-4 h-px bg-gradient-to-r from-[#3455D1] via-cyan to-[#A9E4F2] opacity-80" />
-      {BRANCH_ORDER.map((branchId, index) => (
-        <span
-          key={branchId}
-          className="absolute top-2.5 h-3 w-3 -translate-x-1/2 rounded-full border-2 border-night shadow-md"
-          style={{
-            left: `${7 + (index * 86) / (BRANCH_ORDER.length - 1)}%`,
-            background: BRANCHES[branchId].color,
-          }}
-        />
-      ))}
-      <span className="absolute left-1/2 top-4 h-10 w-px -translate-x-1/2 bg-gradient-to-b from-cyan to-ice/40 shadow-[0_0_10px_rgba(53,196,232,0.55)]" />
-      <span className="absolute bottom-1 left-1/2 h-2.5 w-2.5 -translate-x-1/2 rounded-full border border-cyan/60 bg-night shadow-[0_0_12px_rgba(53,196,232,0.7)]" />
-    </div>
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 304 64"
+      className="mx-auto h-16 w-full max-w-[19rem] overflow-visible"
+    >
+      {BRANCH_ORDER.map((branchId, index) => {
+        const branch = BRANCHES[branchId];
+        const sourceX = 20 + (index * 264) / (BRANCH_ORDER.length - 1);
+        const path = `M ${sourceX} 12 C ${sourceX} 28 152 24 152 58`;
+
+        return (
+          <g key={branchId}>
+            <path
+              d={path}
+              fill="none"
+              stroke={branch.color}
+              strokeWidth={active ? 1.45 : 1.1}
+              strokeDasharray={active ? undefined : "3 6"}
+              strokeLinecap="round"
+              vectorEffect="non-scaling-stroke"
+              opacity={active ? 0.58 : 0.25}
+            />
+            {active && !prefersReducedMotion && (
+              <path
+                d={path}
+                fill="none"
+                stroke="#e5edf7"
+                strokeWidth="0.8"
+                strokeDasharray="2 12"
+                strokeLinecap="round"
+                vectorEffect="non-scaling-stroke"
+                opacity="0.55"
+              >
+                <animate
+                  attributeName="stroke-dashoffset"
+                  from="0"
+                  to="-28"
+                  dur="1.55s"
+                  begin={`${index * 0.06}s`}
+                  repeatCount="indefinite"
+                />
+              </path>
+            )}
+            <circle
+              cx={sourceX}
+              cy="12"
+              r="5"
+              fill={branch.color}
+              stroke="#03152f"
+              strokeWidth="2"
+              opacity={active ? 1 : 0.5}
+            />
+          </g>
+        );
+      })}
+      <path
+        d="M 147.5 52 L 152 59 L 156.5 52"
+        fill="none"
+        stroke="#d9e1ef"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        opacity={active ? 0.85 : 0.38}
+      />
+      <circle cx="152" cy="59" r="4.5" fill="#03152f" stroke="#84b6d7" strokeWidth="1.5" opacity={active ? 1 : 0.45} />
+    </svg>
   );
 }
 
@@ -469,15 +590,13 @@ export function MobileSkillTree({
             {nodesByDepth.length > 0 ? (
               nodesByDepth.map(([depth, nodes], groupIndex) => {
                 const previousNodes = groupIndex === 0 ? [{ id: "branch-root" }] : nodesByDepth[groupIndex - 1][1];
-                const lockedLevel = nodes.every((node) => (statuses[node.id] ?? "locked") === "locked");
-
                 return (
                   <div key={depth} className="w-full">
                     <TreeConnector
                       fromCount={previousNodes.length}
                       toCount={nodes.length}
                       color={branch.color}
-                      muted={lockedLevel}
+                      targetStatuses={nodes.map((node) => statuses[node.id] ?? "locked")}
                     />
                     <div className="mb-2 flex items-center justify-center gap-2">
                       <span className="h-px w-7 bg-line" />
@@ -513,7 +632,7 @@ export function MobileSkillTree({
               <p className="text-[9px] font-bold uppercase tracking-[0.24em] text-cyan">Las ramas convergen</p>
               <h2 className="mt-1 font-heading text-lg font-bold text-ink">Integra lo que aprendiste</h2>
             </div>
-            <ConvergenceGraphic />
+            <ConvergenceGraphic active={irStatus !== "locked"} />
             <SkillTreeNode
               node={IR_NODE}
               status={irStatus}

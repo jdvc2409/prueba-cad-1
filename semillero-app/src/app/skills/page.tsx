@@ -220,7 +220,6 @@ function TreeCanvas() {
       if (!root) continue;
 
       const branch = BRANCHES[branchId];
-      const explored = branchCompletedCount(state.progress, branchId) > 0;
       edges.push({
         id: `candidate-${branchId}`,
         source: CANDIDATE_NODE_ID,
@@ -231,7 +230,7 @@ function TreeCanvas() {
         zIndex: 1,
         data: {
           color: branch.color,
-          active: explored,
+          active: statuses[root.id] !== "locked",
           dimmed: false,
           variant: "branch",
         },
@@ -324,7 +323,7 @@ function TreeCanvas() {
     }
 
     return edges;
-  }, [overview, state.progress, statuses, visible]);
+  }, [overview, statuses, visible]);
 
   useEffect(() => {
     if (isCompact || !hydrated || !accessAllowed) return;
