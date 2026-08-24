@@ -15,8 +15,10 @@ import type {
   IntroItem,
   NodeStatus,
 } from "@/lib/types";
+import { canFinishJourney } from "@/lib/unlock";
 
 const STORAGE_KEY = "semillero-app-state-v1";
+const SESSION_KEY = "semillero-session-active";
 
 const emptyProfile: CandidateProfile = {
   fullName: "",
@@ -36,20 +38,29 @@ const emptyProfile: CandidateProfile = {
 const defaultState: AppState = {
   profile: emptyProfile,
   introduction: [],
+  registrationStep: 1,
+  onboardingCompleted: false,
   progress: {},
   completedAt: {},
   submitted: false,
   submittedAt: null,
 };
 
-type SaveStatus = "idle" | "saving" | "saved";
+type SaveStatus = "idle" | "saving" | "saved" | "error";
 
 interface AppStateContextValue {
   state: AppState;
+  hydrated: boolean;
+  sessionActive: boolean;
   saveStatus: SaveStatus;
+  startSession: () => void;
+  endSession: () => void;
+  flushNow: () => void;
   updateProfile: (patch: Partial<CandidateProfile>) => void;
+  setRegistrationStep: (step: 1 | 2) => void;
   addIntroItem: (item: Omit<IntroItem, "id" | "createdAt">) => void;
   removeIntroItem: (id: string) => void;
+  completeOnboarding: () => void;
   completeNode: (nodeId: string) => void;
   submitJourney: () => void;
   resetAll: () => void;
@@ -63,11 +74,28 @@ function loadState(): AppState {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return defaultState;
     const parsed = JSON.parse(raw) as Partial<AppState>;
+    const profile = { ...emptyProfile, ...(parsed.profile ?? {}) };
+    const profileLooksComplete = Boolean(
+      profile.fullName.trim() &&
+        profile.email.trim() &&
+        profile.program.trim() &&
+        profile.semester.trim() &&
+        profile.consentData &&
+        profile.consentFiles
+    );
     return {
-      profile: { ...emptyProfile, ...(parsed.profile ?? {}) },
+      profile,
       progress: parsed.progress ?? {},
       completedAt: parsed.completedAt ?? {},
       introduction: parsed.introduction ?? [],
+      registrationStep: parsed.registrationStep ?? (profileLooksComplete ? 2 : 1),
+      onboardingCompleted:
+        parsed.onboardingCompleted ??
+        Boolean(
+          parsed.submitted ||
+            Object.keys(parsed.progress ?? {}).length > 0 ||
+            (profileLooksComplete && (parsed.introduction?.length ?? 0) > 0)
+        ),
       submitted: parsed.submitted ?? false,
       submittedAt: parsed.submittedAt ?? null,
     };
@@ -79,15 +107,72 @@ function loadState(): AppState {
 export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AppState>(defaultState);
   const [hydrated, setHydrated] = useState(false);
+  const [sessionActive, setSessionActive] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stateRef = useRef<AppState>(defaultState);
 
   useEffect(() => {
     // One-time sync from localStorage after mount, so SSR/client hydration match.
+    const restoredState = loadState();
+    stateRef.current = restoredState;
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setState(loadState());
+    setState(restoredState);
+    try {
+      setSessionActive(window.sessionStorage.getItem(SESSION_KEY) === "true");
+    } catch {
+      setSessionActive(false);
+      setSaveStatus("error");
+    }
     setHydrated(true);
   }, []);
+
+  const commitState = useCallback(
+    (update: (previous: AppState) => AppState) => {
+      const next = update(stateRef.current);
+      if (Object.is(next, stateRef.current)) return;
+      stateRef.current = next;
+      setState(next);
+    },
+    []
+  );
+
+  const persistState = useCallback((snapshot: AppState) => {
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
+      setSaveStatus("saved");
+    } catch {
+      setSaveStatus("error");
+    }
+  }, []);
+
+  const flushNow = useCallback(() => {
+    if (typeof window === "undefined") return;
+    if (saveTimeout.current) {
+      clearTimeout(saveTimeout.current);
+      saveTimeout.current = null;
+    }
+    persistState(stateRef.current);
+  }, [persistState]);
+
+  const startSession = useCallback(() => {
+    try {
+      window.sessionStorage.setItem(SESSION_KEY, "true");
+    } catch {
+      setSaveStatus("error");
+    }
+    setSessionActive(true);
+  }, []);
+
+  const endSession = useCallback(() => {
+    flushNow();
+    try {
+      window.sessionStorage.removeItem(SESSION_KEY);
+    } catch {
+      setSaveStatus("error");
+    }
+    setSessionActive(false);
+  }, [flushNow]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -96,69 +181,127 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     setSaveStatus("saving");
     if (saveTimeout.current) clearTimeout(saveTimeout.current);
     saveTimeout.current = setTimeout(() => {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      setSaveStatus("saved");
+      saveTimeout.current = null;
+      persistState(state);
     }, 350);
     return () => {
       if (saveTimeout.current) clearTimeout(saveTimeout.current);
     };
-  }, [state, hydrated]);
+  }, [state, hydrated, persistState]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    const persistBeforeLeaving = () => flushNow();
+    const persistWhenHidden = () => {
+      if (document.visibilityState === "hidden") flushNow();
+    };
+    window.addEventListener("pagehide", persistBeforeLeaving);
+    document.addEventListener("visibilitychange", persistWhenHidden);
+    return () => {
+      window.removeEventListener("pagehide", persistBeforeLeaving);
+      document.removeEventListener("visibilitychange", persistWhenHidden);
+    };
+  }, [flushNow, hydrated]);
 
   const updateProfile = useCallback((patch: Partial<CandidateProfile>) => {
-    setState((prev) => ({ ...prev, profile: { ...prev.profile, ...patch } }));
-  }, []);
+    commitState((prev) => ({
+      ...prev,
+      profile: { ...prev.profile, ...patch },
+    }));
+  }, [commitState]);
+
+  const setRegistrationStep = useCallback((registrationStep: 1 | 2) => {
+    commitState((prev) => ({ ...prev, registrationStep }));
+  }, [commitState]);
 
   const addIntroItem = useCallback((item: Omit<IntroItem, "id" | "createdAt">) => {
-    setState((prev) => ({
+    commitState((prev) => ({
       ...prev,
       introduction: [
         ...prev.introduction,
         { ...item, id: crypto.randomUUID(), createdAt: Date.now() },
       ],
     }));
-  }, []);
+  }, [commitState]);
 
   const removeIntroItem = useCallback((id: string) => {
-    setState((prev) => ({
+    commitState((prev) => ({
       ...prev,
       introduction: prev.introduction.filter((item) => item.id !== id),
     }));
-  }, []);
+  }, [commitState]);
+
+  const completeOnboarding = useCallback(() => {
+    commitState((prev) => ({ ...prev, onboardingCompleted: true }));
+  }, [commitState]);
 
   const completeNode = useCallback((nodeId: string) => {
-    setState((prev) => ({
-      ...prev,
-      progress: { ...prev.progress, [nodeId]: "completed" as NodeStatus },
-      completedAt: { ...prev.completedAt, [nodeId]: Date.now() },
-    }));
-  }, []);
+    commitState((prev) => {
+      if (prev.submitted) return prev;
+      return {
+        ...prev,
+        progress: { ...prev.progress, [nodeId]: "completed" as NodeStatus },
+        completedAt: { ...prev.completedAt, [nodeId]: Date.now() },
+      };
+    });
+  }, [commitState]);
 
   const submitJourney = useCallback(() => {
-    setState((prev) => ({ ...prev, submitted: true, submittedAt: Date.now() }));
-  }, []);
+    commitState((prev) => {
+      if (prev.submitted || !canFinishJourney(prev.progress)) return prev;
+      return { ...prev, submitted: true, submittedAt: Date.now() };
+    });
+  }, [commitState]);
 
   const resetAll = useCallback(() => {
-    window.localStorage.removeItem(STORAGE_KEY);
+    let storageError = false;
+    try {
+      window.localStorage.removeItem(STORAGE_KEY);
+    } catch {
+      storageError = true;
+    }
+    try {
+      window.sessionStorage.removeItem(SESSION_KEY);
+    } catch {
+      storageError = true;
+    }
+    stateRef.current = defaultState;
     setState(defaultState);
+    setSessionActive(false);
+    setSaveStatus(storageError ? "error" : "idle");
   }, []);
 
   const value = useMemo(
     () => ({
       state,
+      hydrated,
+      sessionActive,
       saveStatus,
+      startSession,
+      endSession,
+      flushNow,
       updateProfile,
+      setRegistrationStep,
       addIntroItem,
       removeIntroItem,
+      completeOnboarding,
       completeNode,
       submitJourney,
       resetAll,
     }),
     [
       state,
+      hydrated,
+      sessionActive,
       saveStatus,
+      startSession,
+      endSession,
+      flushNow,
       updateProfile,
+      setRegistrationStep,
       addIntroItem,
       removeIntroItem,
+      completeOnboarding,
       completeNode,
       submitJourney,
       resetAll,

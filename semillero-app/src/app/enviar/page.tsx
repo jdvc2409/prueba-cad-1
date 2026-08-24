@@ -2,9 +2,18 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { FlowGate } from "@/components/layout/FlowGate";
 import { useAppState } from "@/lib/state/AppStateContext";
 
 export default function EnviarPage() {
+  return (
+    <FlowGate requireReady>
+      <EnviarContent />
+    </FlowGate>
+  );
+}
+
+function EnviarContent() {
   const { state, submitJourney } = useAppState();
 
   if (state.submitted) {

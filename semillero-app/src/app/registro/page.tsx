@@ -1,10 +1,11 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useAppState } from "@/lib/state/AppStateContext";
 import { EASE_OUT } from "@/lib/motion";
+import { canAccessSkillTree, getRegistrationStep } from "@/lib/journey";
 import type { IntroItemType } from "@/lib/types";
 
 const STEPS = [
@@ -13,8 +14,43 @@ const STEPS = [
 ] as const;
 
 export default function RegistroPage() {
-  const [step, setStep] = useState<1 | 2>(1);
+  const {
+    state,
+    hydrated,
+    sessionActive,
+    setRegistrationStep,
+    completeOnboarding,
+  } = useAppState();
+  const [direction, setDirection] = useState(1);
   const router = useRouter();
+  const step = getRegistrationStep(state);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    if (!sessionActive) {
+      router.replace("/");
+      return;
+    }
+    if (state.submitted) {
+      router.replace("/perfil");
+      return;
+    }
+    if (canAccessSkillTree(state)) router.replace("/skills");
+  }, [hydrated, router, sessionActive, state]);
+
+  function goToStep(nextStep: 1 | 2) {
+    setDirection(nextStep > step ? 1 : -1);
+    setRegistrationStep(nextStep);
+  }
+
+  function finishRegistration() {
+    completeOnboarding();
+    router.replace("/skills");
+  }
+
+  if (!hydrated || !sessionActive || canAccessSkillTree(state)) {
+    return <FlowLoading label="Preparando tu registro" />;
+  }
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-14">
@@ -34,20 +70,20 @@ export default function RegistroPage() {
         </p>
       </motion.div>
 
-      <Stepper current={step} onJump={setStep} />
+      <Stepper current={step} onJump={goToStep} />
 
       <div className="mt-8 rounded-2xl border border-line bg-surface/60 p-6 sm:p-8">
-        <AnimatePresence mode="wait">
+        <AnimatePresence mode="wait" custom={direction}>
           {step === 1 && (
-            <StepShell key="1">
-              <StepDatos onNext={() => setStep(2)} />
+            <StepShell key="1" direction={direction}>
+              <StepDatos onNext={() => goToStep(2)} />
             </StepShell>
           )}
           {step === 2 && (
-            <StepShell key="2">
+            <StepShell key="2" direction={direction}>
               <StepPresentacion
-                onBack={() => setStep(1)}
-                onNext={() => router.push("/skills")}
+                onBack={() => goToStep(1)}
+                onNext={finishRegistration}
               />
             </StepShell>
           )}
@@ -57,13 +93,41 @@ export default function RegistroPage() {
   );
 }
 
-function StepShell({ children }: { children: React.ReactNode }) {
+function FlowLoading({ label }: { label: string }) {
+  return (
+    <div className="flex min-h-[60vh] items-center justify-center px-6">
+      <div className="flex items-center gap-3 rounded-full border border-line bg-surface/70 px-4 py-2.5 text-xs text-muted shadow-xl backdrop-blur">
+        <span className="h-2 w-2 animate-pulse rounded-full bg-cyan" />
+        {label}
+      </div>
+    </div>
+  );
+}
+
+function StepShell({
+  children,
+  direction,
+}: {
+  children: React.ReactNode;
+  direction: number;
+}) {
+  const reduceMotion = useReducedMotion();
+
   return (
     <motion.div
-      initial={{ opacity: 0, x: 16 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: -16 }}
-      transition={{ duration: 0.3, ease: EASE_OUT }}
+      custom={direction}
+      initial={
+        reduceMotion
+          ? { opacity: 1 }
+          : { opacity: 0, x: direction * 28, filter: "blur(3px)" }
+      }
+      animate={{ opacity: 1, x: 0, filter: "blur(0px)" }}
+      exit={
+        reduceMotion
+          ? { opacity: 1 }
+          : { opacity: 0, x: direction * -22, filter: "blur(3px)" }
+      }
+      transition={{ duration: reduceMotion ? 0 : 0.36, ease: EASE_OUT }}
     >
       {children}
     </motion.div>
@@ -313,6 +377,7 @@ function StepPresentacion({ onBack, onNext }: { onBack: () => void; onNext: () =
   const [draft, setDraft] = useState("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const pendingFileType = useRef<IntroItemType>("file");
+  const canContinue = state.introduction.length > 0;
 
   function openFilePicker(type: IntroItemType, accept: string) {
     pendingFileType.current = type;
@@ -502,7 +567,11 @@ function StepPresentacion({ onBack, onNext }: { onBack: () => void; onNext: () =
         <button onClick={onBack} className={ghostBtn}>
           Atrás
         </button>
-        <button onClick={onNext} className={primaryBtn}>
+        <button
+          onClick={onNext}
+          disabled={!canContinue}
+          className={canContinue ? primaryBtn : disabledBtn}
+        >
           Explorar mi árbol
         </button>
       </div>

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Space_Grotesk, Inter } from "next/font/google";
+import { MotionConfig } from "framer-motion";
 import "./globals.css";
 import { AppStateProvider } from "@/lib/state/AppStateContext";
 import { Navbar } from "@/components/layout/Navbar";
@@ -31,10 +32,18 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col bg-night text-ink">
         <AppStateProvider>
-          <Navbar />
-          <main className="flex-1">
-            <PageTransition>{children}</PageTransition>
-          </main>
+          <MotionConfig reducedMotion="user">
+            <a
+              href="#main-content"
+              className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-ink focus:px-4 focus:py-2.5 focus:text-sm focus:font-semibold focus:text-night focus:outline-2 focus:outline-offset-2 focus:outline-cyan"
+            >
+              Saltar al contenido
+            </a>
+            <Navbar />
+            <main id="main-content" tabIndex={-1} className="flex-1 focus:outline-none">
+              <PageTransition>{children}</PageTransition>
+            </main>
+          </MotionConfig>
         </AppStateProvider>
       </body>
     </html>

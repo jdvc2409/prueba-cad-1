@@ -65,6 +65,8 @@ export interface IntroItem {
 export interface AppState {
   profile: CandidateProfile;
   introduction: IntroItem[];
+  registrationStep: 1 | 2;
+  onboardingCompleted: boolean;
   progress: Record<string, NodeStatus>;
   completedAt: Record<string, number>;
   submitted: boolean;

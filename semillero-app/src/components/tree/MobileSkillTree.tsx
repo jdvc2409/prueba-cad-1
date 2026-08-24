@@ -12,6 +12,7 @@ export interface MobileSkillTreeProps {
   statuses: Record<string, NodeStatus>;
   overview: boolean;
   onToggleOverview: () => void;
+  onExit: () => void;
   onOpen: (id: string) => void;
   completedTotal: number;
   branchesTotal: number;
@@ -259,6 +260,7 @@ export function MobileSkillTree({
   statuses,
   overview,
   onToggleOverview,
+  onExit,
   onOpen,
   completedTotal,
   branchesTotal,
@@ -294,7 +296,7 @@ export function MobileSkillTree({
   const showIr = overview || irStatus !== "locked";
 
   return (
-    <main className="relative min-h-[calc(100svh-58px)] overflow-hidden bg-night pb-24 lg:hidden">
+    <div className="relative min-h-[calc(100svh-61px)] overflow-hidden bg-night pb-24 lg:hidden">
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0"
@@ -321,9 +323,17 @@ export function MobileSkillTree({
                 <p className="text-[9px] font-bold uppercase tracking-[0.22em] text-cyan">Aspirante</p>
                 <p className="truncate font-heading text-base font-semibold text-ink">{displayName}</p>
               </div>
-              <span className="rounded-full border border-line bg-night/35 px-2.5 py-1.5 text-[10px] font-semibold text-muted">
-                Recorrido activo
-              </span>
+              <button
+                type="button"
+                onClick={onExit}
+                aria-label="Cerrar sesión"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-line bg-night/35 text-muted transition-colors hover:border-danger/45 hover:bg-danger/10 hover:text-danger focus-visible:outline-2 focus-visible:outline-cyan"
+              >
+                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.9" aria-hidden="true">
+                  <path d="M10 5H6.8A1.8 1.8 0 0 0 5 6.8v10.4A1.8 1.8 0 0 0 6.8 19H10" strokeLinecap="round" />
+                  <path d="M14.5 8.5 18 12l-3.5 3.5M9 12h9" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
             </div>
 
             <div className="relative mt-5 flex items-end justify-between gap-3">
@@ -531,6 +541,6 @@ export function MobileSkillTree({
           </div>
         )}
       </div>
-    </main>
+    </div>
   );
 }

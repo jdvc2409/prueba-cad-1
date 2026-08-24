@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
+import { FlowGate } from "@/components/layout/FlowGate";
 import { useAppState } from "@/lib/state/AppStateContext";
 import { BRANCHES, BRANCH_ORDER } from "@/lib/data/branches";
 import { SKILL_NODES, IR_NODE } from "@/lib/data/nodes";
@@ -12,7 +13,16 @@ import {
 } from "@/lib/unlock";
 
 export default function PerfilPage() {
+  return (
+    <FlowGate requireReady>
+      <PerfilContent />
+    </FlowGate>
+  );
+}
+
+function PerfilContent() {
   const { state } = useAppState();
+  const reduceMotion = Boolean(useReducedMotion());
   const total = completedCount(state.progress);
   const branches = branchesExplored(state.progress);
   const openChallenges = SKILL_NODES.filter(
@@ -52,9 +62,13 @@ export default function PerfilPage() {
               </div>
               <div className="h-2 overflow-hidden rounded-full bg-surface-raised">
                 <motion.div
-                  initial={{ width: 0 }}
+                  initial={reduceMotion ? false : { width: 0 }}
                   animate={{ width: `${pct}%` }}
-                  transition={{ duration: 0.7, delay: 0.1 + i * 0.05, ease: "easeOut" }}
+                  transition={
+                    reduceMotion
+                      ? { duration: 0 }
+                      : { duration: 0.7, delay: 0.1 + i * 0.05, ease: "easeOut" }
+                  }
                   className="h-full rounded-full"
                   style={{ background: `linear-gradient(90deg, ${branch.color}, #35C4E8)` }}
                 />
@@ -90,17 +104,36 @@ export default function PerfilPage() {
         </div>
       )}
 
-      <div className="mt-10 flex flex-col items-center gap-3">
-        <Link
-          href="/enviar"
-          className="rounded-lg bg-gradient-to-r from-action to-tech px-8 py-3 text-sm font-semibold text-ink shadow-lg shadow-action/20 transition-transform hover:scale-[1.03] active:scale-[0.98]"
-        >
-          Enviar mi prueba
-        </Link>
-        <Link href="/skills" className="text-xs text-muted hover:text-ink">
-          Seguir explorando
-        </Link>
-      </div>
+      {state.submitted ? (
+        <div className="mt-10 flex flex-col items-center gap-4 rounded-2xl border border-ok/25 bg-ok/10 px-6 py-6 text-center">
+          <p className="text-sm text-ink">
+            Tu recorrido ya fue enviado y quedó cerrado para edición.
+          </p>
+          <div className="flex flex-col items-center gap-3 sm:flex-row">
+            <Link
+              href="/enviar"
+              className="rounded-lg bg-gradient-to-r from-action to-tech px-6 py-2.5 text-sm font-semibold text-ink shadow-lg shadow-action/20"
+            >
+              Ver confirmación
+            </Link>
+            <Link href="/" className="px-4 py-2 text-xs text-muted hover:text-ink">
+              Volver al inicio
+            </Link>
+          </div>
+        </div>
+      ) : (
+        <div className="mt-10 flex flex-col items-center gap-3">
+          <Link
+            href="/enviar"
+            className="rounded-lg bg-gradient-to-r from-action to-tech px-8 py-3 text-sm font-semibold text-ink shadow-lg shadow-action/20 transition-transform hover:scale-[1.03] active:scale-[0.98]"
+          >
+            Enviar mi prueba
+          </Link>
+          <Link href="/skills" className="text-xs text-muted hover:text-ink">
+            Seguir explorando
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

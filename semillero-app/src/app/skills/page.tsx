@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Background,
   BackgroundVariant,
@@ -47,6 +48,8 @@ import { TravelerCard } from "@/components/tree/TravelerCard";
 import { TreeHeader } from "@/components/tree/TreeHeader";
 import { NodeDetailPanel } from "@/components/tree/NodeDetailPanel";
 import { MobileSkillTree } from "@/components/tree/MobileSkillTree";
+import { ExitJourneyDialog } from "@/components/tree/ExitJourneyDialog";
+import { canAccessSkillTree } from "@/lib/journey";
 import type { BranchId } from "@/lib/types";
 
 const nodeTypes = {
@@ -75,11 +78,34 @@ const HYBRID_LINKS = [
 ] as const;
 
 function TreeCanvas() {
-  const { state, completeNode } = useAppState();
+  const {
+    state,
+    hydrated,
+    sessionActive,
+    completeNode,
+    endSession,
+  } = useAppState();
   const [overview, setOverview] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [exitOpen, setExitOpen] = useState(false);
   const [isCompact, setIsCompact] = useState(false);
   const { fitView, setCenter } = useReactFlow();
+  const router = useRouter();
+  const canAccess = canAccessSkillTree(state);
+  const accessAllowed = sessionActive && canAccess && !state.submitted;
+
+  useEffect(() => {
+    if (!hydrated) return;
+    if (!sessionActive) {
+      router.replace("/");
+      return;
+    }
+    if (state.submitted) {
+      router.replace("/perfil");
+      return;
+    }
+    if (!canAccess) router.replace("/registro");
+  }, [canAccess, hydrated, router, sessionActive, state.submitted]);
 
   const positions = useMemo(() => layoutPositions(), []);
   const statuses = useMemo(() => computeAllStatuses(state.progress), [state.progress]);
@@ -301,13 +327,13 @@ function TreeCanvas() {
   }, [overview, state.progress, statuses, visible]);
 
   useEffect(() => {
-    if (isCompact) return;
+    if (isCompact || !hydrated || !accessAllowed) return;
     const timer = setTimeout(
       () => fitView({ padding: overview ? 0.06 : 0.1, duration: 650, maxZoom: 1 }),
       80
     );
     return () => clearTimeout(timer);
-  }, [fitView, isCompact, overview, visible.size]);
+  }, [accessAllowed, fitView, hydrated, isCompact, overview, visible.size]);
 
   const selectedNode = selectedId ? nodeById(selectedId) ?? null : null;
   const selectedStatus = selectedId ? statuses[selectedId] ?? "locked" : "locked";
@@ -331,6 +357,12 @@ function TreeCanvas() {
     [setCenter]
   );
 
+  const handleExit = useCallback(() => {
+    endSession();
+    setExitOpen(false);
+    router.replace("/");
+  }, [endSession, router]);
+
   const detailPanel = (
     <NodeDetailPanel
       node={selectedNode}
@@ -341,14 +373,27 @@ function TreeCanvas() {
     />
   );
 
+  const exitDialog = (
+    <ExitJourneyDialog
+      open={exitOpen}
+      onCancel={() => setExitOpen(false)}
+      onConfirm={handleExit}
+    />
+  );
+
+  if (!hydrated || !accessAllowed) {
+    return <TreeLoading />;
+  }
+
   if (isCompact) {
     return (
-      <div className="min-h-[calc(100dvh-58px)] bg-night">
+      <div className="min-h-[calc(100dvh-61px)] bg-night">
         <MobileSkillTree
           progress={state.progress}
           statuses={statuses}
           overview={overview}
           onToggleOverview={() => setOverview((value) => !value)}
+          onExit={() => setExitOpen(true)}
           onOpen={setSelectedId}
           completedTotal={completedTotal}
           branchesTotal={branchesTotal}
@@ -356,18 +401,20 @@ function TreeCanvas() {
           ready={ready}
         />
         {detailPanel}
+        {exitDialog}
       </div>
     );
   }
 
   return (
-    <div className="skill-tree-canvas relative flex h-[calc(100dvh-58px)] min-h-[680px] w-full flex-col overflow-hidden bg-night">
+    <div className="skill-tree-canvas relative flex h-[calc(100dvh-61px)] min-h-[680px] w-full flex-col overflow-hidden bg-night">
       <div className="pointer-events-none relative z-10 shrink-0 px-4 pt-4 lg:px-5 lg:pt-5">
         <TreeHeader
           progress={state.progress}
           overview={overview}
           onToggleOverview={() => setOverview((value) => !value)}
           onJumpToLane={handleJumpToLane}
+          onExit={() => setExitOpen(true)}
           completedTotal={completedTotal}
           branchesTotal={branchesTotal}
         />
@@ -419,6 +466,18 @@ function TreeCanvas() {
       </div>
 
       {detailPanel}
+      {exitDialog}
+    </div>
+  );
+}
+
+function TreeLoading() {
+  return (
+    <div className="flex min-h-[calc(100dvh-61px)] items-center justify-center bg-night px-6">
+      <div className="relative flex items-center gap-3 rounded-full border border-line bg-surface/75 px-4 py-2.5 text-xs text-muted shadow-2xl backdrop-blur">
+        <span className="h-2 w-2 animate-pulse rounded-full bg-cyan shadow-[0_0_12px_rgba(53,196,232,0.8)]" />
+        Preparando tu árbol
+      </div>
     </div>
   );
 }

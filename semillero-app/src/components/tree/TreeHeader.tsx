@@ -12,6 +12,7 @@ export function TreeHeader({
   overview,
   onToggleOverview,
   onJumpToLane,
+  onExit,
   completedTotal,
   branchesTotal,
 }: {
@@ -19,6 +20,7 @@ export function TreeHeader({
   overview: boolean;
   onToggleOverview: () => void;
   onJumpToLane: (id: BranchId) => void;
+  onExit: () => void;
   completedTotal: number;
   branchesTotal: number;
 }) {
@@ -80,18 +82,32 @@ export function TreeHeader({
         })}
       </div>
 
-      <button
-        type="button"
-        onClick={onToggleOverview}
-        aria-pressed={overview}
-        className={`shrink-0 rounded-xl border px-3.5 py-2.5 text-[11px] font-semibold transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan ${
-          overview
-            ? "border-cyan/50 bg-cyan/15 text-cyan"
-            : "border-line bg-surface text-ink hover:border-tech/60 hover:bg-surface-raised"
-        }`}
-      >
-        {overview ? "Volver a mi progreso" : "Ver árbol completo"}
-      </button>
+      <div className="flex shrink-0 items-center gap-2">
+        <button
+          type="button"
+          onClick={onToggleOverview}
+          aria-pressed={overview}
+          className={`rounded-xl border px-3.5 py-2.5 text-[11px] font-semibold transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan ${
+            overview
+              ? "border-cyan/50 bg-cyan/15 text-cyan"
+              : "border-line bg-surface text-ink hover:border-tech/60 hover:bg-surface-raised"
+          }`}
+        >
+          {overview ? "Volver a mi progreso" : "Ver árbol completo"}
+        </button>
+        <button
+          type="button"
+          onClick={onExit}
+          title="Cerrar sesión"
+          aria-label="Cerrar sesión"
+          className="flex h-9 w-9 items-center justify-center rounded-xl border border-line bg-surface text-muted transition-all hover:border-danger/45 hover:bg-danger/10 hover:text-danger focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan"
+        >
+          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.9" aria-hidden="true">
+            <path d="M10 5H6.8A1.8 1.8 0 0 0 5 6.8v10.4A1.8 1.8 0 0 0 6.8 19H10" strokeLinecap="round" />
+            <path d="M14.5 8.5 18 12l-3.5 3.5M9 12h9" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+      </div>
     </motion.section>
   );
 }
