@@ -1,43 +1,113 @@
 "use client";
 
 import { motion } from "framer-motion";
-import type { EdgeProps } from "@xyflow/react";
+import { getBezierPath, type EdgeProps } from "@xyflow/react";
+
+export type LaneEdgeVariant = "branch" | "lane" | "hybrid" | "irfeed";
 
 export interface LaneEdgeData {
-  x1: number;
-  y1: number;
-  x2: number;
-  y2: number;
   color: string;
   active: boolean;
   dimmed: boolean;
-  variant: "lane" | "irfeed";
+  variant: LaneEdgeVariant;
   [key: string]: unknown;
 }
 
-export function LaneEdge({ data }: EdgeProps) {
+export function LaneEdge({
+  data,
+  sourceX,
+  sourceY,
+  targetX,
+  targetY,
+  sourcePosition,
+  targetPosition,
+  markerStart,
+  markerEnd,
+  selected,
+  style,
+}: EdgeProps) {
+  if (!data) return null;
+
   const d = data as LaneEdgeData;
-  if (!d) return null;
+  const variant = d.variant ?? "lane";
+  const curvature =
+    variant === "hybrid"
+      ? 0.42
+      : variant === "branch"
+        ? 0.34
+        : variant === "irfeed"
+          ? 0.38
+          : 0.28;
+  const [path] = getBezierPath({
+    sourceX,
+    sourceY,
+    sourcePosition,
+    targetX,
+    targetY,
+    targetPosition,
+    curvature,
+  });
 
-  const my = (d.y1 + d.y2) / 2;
-  const path = `M ${d.x1} ${d.y1} C ${d.x1} ${my} ${d.x2} ${my} ${d.x2} ${d.y2}`;
-
-  const stroke = d.active ? d.color : "rgba(117,186,224,0.28)";
-  const width = d.variant === "irfeed" ? 1.75 : d.active ? 2 : 1.5;
-  const dash = !d.active ? "5 5" : undefined;
+  const stroke = d.active ? d.color : "rgba(117, 186, 224, 0.3)";
+  const strokeWidth =
+    variant === "branch"
+      ? d.active
+        ? 2.75
+        : 2
+      : variant === "hybrid"
+        ? 1.2
+        : variant === "irfeed"
+          ? 1.55
+          : d.active
+            ? 2
+            : 1.45;
+  const strokeDasharray =
+    variant === "hybrid"
+      ? "2 7"
+      : variant === "irfeed"
+        ? "6 6"
+        : !d.active
+          ? "4 6"
+          : undefined;
+  const baseOpacity =
+    variant === "hybrid"
+      ? d.active
+        ? 0.38
+        : 0.24
+      : variant === "irfeed"
+        ? d.active
+          ? 0.62
+          : 0.34
+        : variant === "branch"
+          ? d.active
+            ? 0.9
+            : 0.48
+          : d.active
+            ? 0.78
+            : 0.46;
+  const opacity = d.dimmed
+    ? Math.min(baseOpacity, 0.18)
+    : selected
+      ? Math.min(baseOpacity + 0.15, 1)
+      : baseOpacity;
 
   return (
     <motion.path
+      className="react-flow__edge-path"
       d={path}
       fill="none"
       stroke={stroke}
-      strokeWidth={width}
-      strokeDasharray={dash}
+      strokeWidth={strokeWidth}
+      strokeDasharray={strokeDasharray}
       strokeLinecap="round"
-      opacity={d.dimmed ? 0.35 : d.active ? 0.85 : 0.5}
+      markerStart={markerStart}
+      markerEnd={markerEnd}
+      vectorEffect="non-scaling-stroke"
+      style={style}
+      aria-hidden="true"
       initial={{ pathLength: 0, opacity: 0 }}
-      animate={{ pathLength: 1, opacity: d.dimmed ? 0.35 : d.active ? 0.85 : 0.5 }}
-      transition={{ duration: 0.6, ease: "easeInOut" }}
+      animate={{ pathLength: 1, opacity }}
+      transition={{ duration: variant === "hybrid" ? 0.45 : 0.6, ease: "easeOut" }}
     />
   );
 }

@@ -11,9 +11,8 @@ Integración Robótica), completando retos a su propio ritmo.
 ## Estado actual
 
 Implementado el recorrido del aspirante: landing, presentación del semillero,
-registro, presentación libre multimodal, disponibilidad, y el árbol de
-habilidades interactivo con 54 nodos técnicos + el reto transversal de
-Integración Robótica.
+registro, presentación libre multimodal y un árbol de habilidades interactivo
+con 53 nodos técnicos más el reto transversal de Integración Robótica.
 
 Los retos en esta etapa son **placeholders de debug**: al hacer clic en un
 nodo se muestra su nombre, tipo y una mini descripción de en qué consiste, con

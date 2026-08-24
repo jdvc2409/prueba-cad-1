@@ -1,23 +1,37 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback } from "react";
-import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  ReactFlow,
-  ReactFlowProvider,
   Background,
   BackgroundVariant,
   Controls,
+  Position,
+  ReactFlow,
+  ReactFlowProvider,
   useReactFlow,
-  type Node,
   type Edge,
+  type Node,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { motion, AnimatePresence } from "framer-motion";
 import { useAppState } from "@/lib/state/AppStateContext";
-import { ALL_NODES, APPLICATION_NODE_IDS, IR_NODE, SKILL_NODES, nodeById } from "@/lib/data/nodes";
+import {
+  ALL_NODES,
+  APPLICATION_NODE_IDS,
+  IR_NODE,
+  SKILL_NODES,
+  nodeById,
+} from "@/lib/data/nodes";
 import { BRANCHES, BRANCH_ORDER } from "@/lib/data/branches";
-import { LANE_HEADER_Y, laneX, layoutPositions } from "@/lib/treeLayout";
+import {
+  branchFocusPosition,
+  branchHubPosition,
+  candidateHandle,
+  CANDIDATE_NODE_ID,
+  layoutPositions,
+  oppositeHandle,
+  outwardHandle,
+  type HandleSide,
+} from "@/lib/treeLayout";
 import {
   branchCompletedCount,
   branchProgressPercent,
@@ -32,19 +46,54 @@ import { LaneEdge } from "@/components/tree/LaneEdge";
 import { TravelerCard } from "@/components/tree/TravelerCard";
 import { TreeHeader } from "@/components/tree/TreeHeader";
 import { NodeDetailPanel } from "@/components/tree/NodeDetailPanel";
+import { MobileSkillTree } from "@/components/tree/MobileSkillTree";
 import type { BranchId } from "@/lib/types";
 
-const nodeTypes = { skill: SkillNodeCard, laneHeader: LaneHeaderNode };
+const nodeTypes = {
+  skill: SkillNodeCard,
+  laneHeader: LaneHeaderNode,
+  traveler: TravelerCard,
+};
 const edgeTypes = { lane: LaneEdge };
+
+const HANDLE_POSITION: Record<HandleSide, Position> = {
+  top: Position.Top,
+  right: Position.Right,
+  bottom: Position.Bottom,
+  left: Position.Left,
+};
+
+/** Visual relationships only: they show where disciplines meet without
+ * changing the prerequisite rules for either branch. */
+const HYBRID_LINKS = [
+  ["D2", "M2"],
+  ["E2", "C2"],
+  ["S2", "A2"],
+  ["C4", "SI4"],
+  ["S3B", "SI4"],
+  ["A3A", "E3A"],
+] as const;
 
 function TreeCanvas() {
   const { state, completeNode } = useAppState();
   const [overview, setOverview] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [isCompact, setIsCompact] = useState(false);
   const { fitView, setCenter } = useReactFlow();
 
   const positions = useMemo(() => layoutPositions(), []);
   const statuses = useMemo(() => computeAllStatuses(state.progress), [state.progress]);
+  const completedTotal = completedCount(state.progress);
+  const branchesTotal = branchesExplored(state.progress);
+  const ready = canFinishJourney(state.progress);
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 1023px)");
+    const sync = () => setIsCompact(media.matches);
+    sync();
+    media.addEventListener("change", sync);
+    return () => media.removeEventListener("change", sync);
+  }, []);
 
   const visible = useMemo(() => {
     const set = new Set<string>();
@@ -55,90 +104,193 @@ function TreeCanvas() {
   }, [overview, statuses]);
 
   const flowNodes: Node[] = useMemo(() => {
-    const laneHeaders: Node[] = BRANCH_ORDER.map((id) => {
+    const candidate: Node = {
+      id: CANDIDATE_NODE_ID,
+      type: "traveler",
+      position: { x: 0, y: 0 },
+      draggable: false,
+      selectable: false,
+      zIndex: 5,
+      data: {
+        name: state.profile.fullName,
+        completed: completedTotal,
+        branches: branchesTotal,
+        progress: state.progress,
+        ready,
+      },
+    };
+
+    const branchHubs: Node[] = BRANCH_ORDER.map((id) => {
       const branch = BRANCHES[id];
-      const total = SKILL_NODES.filter((n) => n.branchId === id).length;
+      const total = SKILL_NODES.filter((node) => node.branchId === id).length;
       const done = branchCompletedCount(state.progress, id);
+      const out = outwardHandle(id);
       return {
         id: `lane-${id}`,
         type: "laneHeader",
-        position: { x: laneX(id), y: LANE_HEADER_Y },
+        position: branchHubPosition(id),
         draggable: false,
         selectable: false,
+        zIndex: 4,
         data: {
           branchId: id,
           name: branch.name,
+          tagline: branch.tagline,
           color: branch.color,
           done,
           total,
           pct: branchProgressPercent(state.progress, id),
+          targetPosition: HANDLE_POSITION[oppositeHandle(out)],
+          sourcePosition: HANDLE_POSITION[out],
         },
       };
     });
 
-    const skillNodes: Node[] = ALL_NODES.filter((n) => visible.has(n.id)).map((n) => ({
-      id: n.id,
-      type: "skill",
-      position: positions[n.id],
-      draggable: false,
-      selectable: false,
-      data: {
-        def: n,
-        status: statuses[n.id],
-        dimmed: overview && statuses[n.id] === "locked",
-        color: BRANCHES[n.branchId].color,
-        isIR: n.id === IR_NODE.id,
-        onOpen: setSelectedId,
-      },
-    }));
+    const skillNodes: Node[] = ALL_NODES.filter((node) => visible.has(node.id)).map(
+      (node) => {
+        const out = node.id === IR_NODE.id ? "bottom" : outwardHandle(node.branchId);
+        const inward = node.id === IR_NODE.id ? "top" : oppositeHandle(out);
+        return {
+          id: node.id,
+          type: "skill",
+          position: positions[node.id],
+          draggable: false,
+          selectable: false,
+          zIndex: node.id === IR_NODE.id ? 6 : 3,
+          data: {
+            def: node,
+            status: statuses[node.id],
+            dimmed: overview && statuses[node.id] === "locked",
+            color: BRANCHES[node.branchId].color,
+            isIR: node.id === IR_NODE.id,
+            targetPosition: HANDLE_POSITION[inward],
+            sourcePosition: HANDLE_POSITION[out],
+            onOpen: setSelectedId,
+          },
+        };
+      }
+    );
 
-    return [...laneHeaders, ...skillNodes];
-  }, [state.progress, positions, statuses, visible, overview]);
+    return [candidate, ...branchHubs, ...skillNodes];
+  }, [
+    branchesTotal,
+    completedTotal,
+    overview,
+    positions,
+    ready,
+    state.profile.fullName,
+    state.progress,
+    statuses,
+    visible,
+  ]);
 
   const flowEdges: Edge[] = useMemo(() => {
     const edges: Edge[] = [];
 
-    for (const n of ALL_NODES) {
-      if (n.id === IR_NODE.id || !visible.has(n.id)) continue;
-      for (const reqId of n.requires) {
-        if (!visible.has(reqId)) continue;
+    for (const branchId of BRANCH_ORDER) {
+      const root = SKILL_NODES.find(
+        (node) => node.branchId === branchId && node.requires.length === 0
+      );
+      if (!root) continue;
+
+      const branch = BRANCHES[branchId];
+      const explored = branchCompletedCount(state.progress, branchId) > 0;
+      edges.push({
+        id: `candidate-${branchId}`,
+        source: CANDIDATE_NODE_ID,
+        sourceHandle: candidateHandle(branchId),
+        target: `lane-${branchId}`,
+        targetHandle: "in",
+        type: "lane",
+        zIndex: 1,
+        data: {
+          color: branch.color,
+          active: explored,
+          dimmed: false,
+          variant: "branch",
+        },
+      });
+
+      if (visible.has(root.id)) {
         edges.push({
-          id: `${reqId}-${n.id}`,
-          source: reqId,
-          target: n.id,
+          id: `lane-${branchId}-${root.id}`,
+          source: `lane-${branchId}`,
+          sourceHandle: "out",
+          target: root.id,
+          targetHandle: "in",
           type: "lane",
+          zIndex: 1,
           data: {
-            x1: positions[reqId].x,
-            y1: positions[reqId].y,
-            x2: positions[n.id].x,
-            y2: positions[n.id].y,
-            color: BRANCHES[n.branchId].color,
-            active: statuses[reqId] === "completed",
-            dimmed: overview && statuses[n.id] === "locked",
+            color: branch.color,
+            active: statuses[root.id] !== "locked",
+            dimmed: overview && statuses[root.id] === "locked",
+            variant: "branch",
+          },
+        });
+      }
+    }
+
+    for (const node of SKILL_NODES) {
+      if (!visible.has(node.id)) continue;
+      for (const requirementId of node.requires) {
+        if (!visible.has(requirementId)) continue;
+        edges.push({
+          id: `${requirementId}-${node.id}`,
+          source: requirementId,
+          sourceHandle: "out",
+          target: node.id,
+          targetHandle: "in",
+          type: "lane",
+          zIndex: 1,
+          data: {
+            color: BRANCHES[node.branchId].color,
+            active: statuses[requirementId] === "completed",
+            dimmed: overview && statuses[node.id] === "locked",
             variant: "lane",
           },
         });
       }
     }
 
+    for (const [source, target] of HYBRID_LINKS) {
+      if (!visible.has(source) || !visible.has(target)) continue;
+      const sourceNode = nodeById(source);
+      if (!sourceNode) continue;
+      edges.push({
+        id: `hybrid-${source}-${target}`,
+        source,
+        sourceHandle: "cross",
+        target,
+        targetHandle: "in",
+        type: "lane",
+        zIndex: 0,
+        data: {
+          color: BRANCHES[sourceNode.branchId].color,
+          active: statuses[source] === "completed" && statuses[target] !== "locked",
+          dimmed: overview &&
+            (statuses[source] === "locked" || statuses[target] === "locked"),
+          variant: "hybrid",
+        },
+      });
+    }
+
     if (visible.has(IR_NODE.id)) {
-      for (const appId of APPLICATION_NODE_IDS) {
-        if (!visible.has(appId)) continue;
-        const appNode = nodeById(appId);
-        if (!appNode) continue;
+      for (const applicationId of APPLICATION_NODE_IDS) {
+        if (statuses[applicationId] !== "completed") continue;
+        const applicationNode = nodeById(applicationId);
+        if (!applicationNode) continue;
         edges.push({
-          id: `feed-${appId}`,
-          source: appId,
+          id: `feed-${applicationId}`,
+          source: applicationId,
+          sourceHandle: "cross",
           target: IR_NODE.id,
+          targetHandle: "in",
           type: "lane",
+          zIndex: 2,
           data: {
-            x1: positions[appId].x,
-            y1: positions[appId].y,
-            x2: positions[IR_NODE.id].x,
-            y2: positions[IR_NODE.id].y,
-            color: BRANCHES[appNode.branchId].color,
-            active: statuses[appId] === "completed",
-            dimmed: overview && statuses[IR_NODE.id] === "locked",
+            color: BRANCHES[applicationNode.branchId].color,
+            active: true,
+            dimmed: false,
             variant: "irfeed",
           },
         });
@@ -146,106 +298,127 @@ function TreeCanvas() {
     }
 
     return edges;
-  }, [visible, positions, statuses, overview]);
+  }, [overview, state.progress, statuses, visible]);
 
   useEffect(() => {
-    const t = setTimeout(() => fitView({ padding: 0.12, duration: 500 }), 60);
-    return () => clearTimeout(t);
-  }, [overview, fitView]);
+    if (isCompact) return;
+    const timer = setTimeout(
+      () => fitView({ padding: overview ? 0.06 : 0.1, duration: 650, maxZoom: 1 }),
+      80
+    );
+    return () => clearTimeout(timer);
+  }, [fitView, isCompact, overview, visible.size]);
 
   const selectedNode = selectedId ? nodeById(selectedId) ?? null : null;
-  const selectedStatus = selectedId ? statuses[selectedId] : "locked";
+  const selectedStatus = selectedId ? statuses[selectedId] ?? "locked" : "locked";
   const prereqTitles = useMemo(() => {
     if (!selectedNode) return [];
     return selectedNode.requires
       .map((id) => nodeById(id)?.title)
-      .filter((t): t is string => Boolean(t));
+      .filter((title): title is string => Boolean(title));
   }, [selectedNode]);
 
-  const ready = canFinishJourney(state.progress);
-
   const handleComplete = useCallback(
-    (id: string) => {
-      completeNode(id);
-    },
+    (id: string) => completeNode(id),
     [completeNode]
   );
 
   const handleJumpToLane = useCallback(
     (branchId: BranchId) => {
-      setCenter(laneX(branchId), 260, { zoom: 0.85, duration: 600 });
+      const point = branchFocusPosition(branchId);
+      setCenter(point.x, point.y, { zoom: 0.92, duration: 650 });
     },
     [setCenter]
   );
 
+  const detailPanel = (
+    <NodeDetailPanel
+      node={selectedNode}
+      status={selectedStatus}
+      prereqTitles={prereqTitles}
+      onClose={() => setSelectedId(null)}
+      onComplete={handleComplete}
+    />
+  );
+
+  if (isCompact) {
+    return (
+      <div className="min-h-[calc(100dvh-58px)] bg-night">
+        <MobileSkillTree
+          progress={state.progress}
+          statuses={statuses}
+          overview={overview}
+          onToggleOverview={() => setOverview((value) => !value)}
+          onOpen={setSelectedId}
+          completedTotal={completedTotal}
+          branchesTotal={branchesTotal}
+          profileName={state.profile.fullName}
+          ready={ready}
+        />
+        {detailPanel}
+      </div>
+    );
+  }
+
   return (
-    <div className="relative h-[calc(100vh-58px)] w-full bg-night">
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 p-4 sm:p-5">
+    <div className="skill-tree-canvas relative flex h-[calc(100dvh-58px)] min-h-[680px] w-full flex-col overflow-hidden bg-night">
+      <div className="pointer-events-none relative z-10 shrink-0 px-4 pt-4 lg:px-5 lg:pt-5">
         <TreeHeader
           progress={state.progress}
           overview={overview}
-          onToggleOverview={() => setOverview((v) => !v)}
+          onToggleOverview={() => setOverview((value) => !value)}
           onJumpToLane={handleJumpToLane}
-          completedTotal={completedCount(state.progress)}
-          branchesTotal={branchesExplored(state.progress)}
+          completedTotal={completedTotal}
+          branchesTotal={branchesTotal}
         />
       </div>
 
-      <div className="pointer-events-none absolute bottom-5 left-4 z-10 sm:left-5">
-        <TravelerCard
-          name={state.profile.fullName}
-          completed={completedCount(state.progress)}
-          branches={branchesExplored(state.progress)}
-          progress={state.progress}
-        />
+      <div className="relative z-[1] min-h-0 flex-1">
+        <ReactFlow
+          nodes={flowNodes}
+          edges={flowEdges}
+          nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
+          nodeOrigin={[0.5, 0.5]}
+          fitView
+          fitViewOptions={{ padding: 0.1, maxZoom: 1 }}
+          nodesDraggable={false}
+          nodesConnectable={false}
+          elementsSelectable={false}
+          panOnScroll
+          zoomOnDoubleClick={false}
+          proOptions={{ hideAttribution: true }}
+          minZoom={0.22}
+          maxZoom={1.5}
+        >
+          <Background
+            variant={BackgroundVariant.Dots}
+            color="#1a4965"
+            gap={30}
+            size={1.3}
+          />
+          <Controls
+            showInteractive={false}
+            position="bottom-right"
+            className="!m-5 !overflow-hidden !rounded-xl !border !border-line !bg-surface/95 !shadow-2xl [&>button]:!border-line [&>button]:!bg-surface [&>button]:!text-ink [&>button:hover]:!bg-surface-raised"
+          />
+        </ReactFlow>
+
+        <div className="pointer-events-none absolute bottom-5 left-5 z-10 hidden items-center gap-4 rounded-xl border border-line bg-surface/85 px-3.5 py-2.5 text-[10px] text-muted shadow-xl backdrop-blur lg:flex">
+          <span className="font-semibold uppercase tracking-[0.16em] text-ink/80">Lectura</span>
+          <span className="flex items-center gap-1.5">
+            <i className="h-2 w-2 rounded-full bg-cyan" /> Listo
+          </span>
+          <span className="flex items-center gap-1.5">
+            <i className="h-2 w-2 rounded-full bg-ok" /> Completado
+          </span>
+          <span className="flex items-center gap-1.5">
+            <i className="h-px w-5 border-t border-dashed border-muted" /> Cruce entre ramas
+          </span>
+        </div>
       </div>
 
-      <ReactFlow
-        nodes={flowNodes}
-        edges={flowEdges}
-        nodeTypes={nodeTypes}
-        edgeTypes={edgeTypes}
-        fitView
-        fitViewOptions={{ padding: 0.12 }}
-        nodesDraggable={false}
-        nodesConnectable={false}
-        elementsSelectable={false}
-        proOptions={{ hideAttribution: true }}
-        minZoom={0.25}
-        maxZoom={1.6}
-      >
-        <Background variant={BackgroundVariant.Dots} color="#123449" gap={28} size={1.4} />
-        <Controls
-          showInteractive={false}
-          className="!bottom-6 !right-6 !left-auto !rounded-xl !border !border-line !bg-surface/90 [&>button]:!border-line [&>button]:!bg-surface [&>button]:!text-ink"
-        />
-      </ReactFlow>
-
-      <AnimatePresence>
-        {ready && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            className="pointer-events-none absolute inset-x-0 bottom-28 z-10 flex justify-center sm:bottom-6"
-          >
-            <Link
-              href="/perfil"
-              className="pulse-glow pointer-events-auto rounded-full bg-gradient-to-r from-action to-cyan px-6 py-3 text-sm font-semibold text-ink shadow-2xl transition-transform hover:scale-105"
-            >
-              Finalizar mi recorrido →
-            </Link>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <NodeDetailPanel
-        node={selectedNode}
-        status={selectedStatus}
-        prereqTitles={prereqTitles}
-        onClose={() => setSelectedId(null)}
-        onComplete={handleComplete}
-      />
+      {detailPanel}
     </div>
   );
 }

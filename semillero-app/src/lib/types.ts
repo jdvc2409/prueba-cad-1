@@ -62,18 +62,9 @@ export interface IntroItem {
   createdAt: number;
 }
 
-export interface Availability {
-  hoursPerWeek: string;
-  days: string[];
-  modality: string;
-  timeOfDay: string;
-  commitment: string;
-}
-
 export interface AppState {
   profile: CandidateProfile;
   introduction: IntroItem[];
-  availability: Availability;
   progress: Record<string, NodeStatus>;
   completedAt: Record<string, number>;
   submitted: boolean;

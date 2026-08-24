@@ -11,7 +11,6 @@ import {
 } from "react";
 import type {
   AppState,
-  Availability,
   CandidateProfile,
   IntroItem,
   NodeStatus,
@@ -34,18 +33,9 @@ const emptyProfile: CandidateProfile = {
   consentFiles: false,
 };
 
-const emptyAvailability: Availability = {
-  hoursPerWeek: "",
-  days: [],
-  modality: "",
-  timeOfDay: "",
-  commitment: "",
-};
-
 const defaultState: AppState = {
   profile: emptyProfile,
   introduction: [],
-  availability: emptyAvailability,
   progress: {},
   completedAt: {},
   submitted: false,
@@ -58,7 +48,6 @@ interface AppStateContextValue {
   state: AppState;
   saveStatus: SaveStatus;
   updateProfile: (patch: Partial<CandidateProfile>) => void;
-  updateAvailability: (patch: Partial<Availability>) => void;
   addIntroItem: (item: Omit<IntroItem, "id" | "createdAt">) => void;
   removeIntroItem: (id: string) => void;
   completeNode: (nodeId: string) => void;
@@ -75,13 +64,12 @@ function loadState(): AppState {
     if (!raw) return defaultState;
     const parsed = JSON.parse(raw) as Partial<AppState>;
     return {
-      ...defaultState,
-      ...parsed,
       profile: { ...emptyProfile, ...(parsed.profile ?? {}) },
-      availability: { ...emptyAvailability, ...(parsed.availability ?? {}) },
       progress: parsed.progress ?? {},
       completedAt: parsed.completedAt ?? {},
       introduction: parsed.introduction ?? [],
+      submitted: parsed.submitted ?? false,
+      submittedAt: parsed.submittedAt ?? null,
     };
   } catch {
     return defaultState;
@@ -118,13 +106,6 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
 
   const updateProfile = useCallback((patch: Partial<CandidateProfile>) => {
     setState((prev) => ({ ...prev, profile: { ...prev.profile, ...patch } }));
-  }, []);
-
-  const updateAvailability = useCallback((patch: Partial<Availability>) => {
-    setState((prev) => ({
-      ...prev,
-      availability: { ...prev.availability, ...patch },
-    }));
   }, []);
 
   const addIntroItem = useCallback((item: Omit<IntroItem, "id" | "createdAt">) => {
@@ -166,7 +147,6 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       state,
       saveStatus,
       updateProfile,
-      updateAvailability,
       addIntroItem,
       removeIntroItem,
       completeNode,
@@ -177,7 +157,6 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       state,
       saveStatus,
       updateProfile,
-      updateAvailability,
       addIntroItem,
       removeIntroItem,
       completeNode,

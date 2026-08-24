@@ -26,7 +26,9 @@ html {
 }
 
 body {
-  background: var(--color-night);
+  background:
+    radial-gradient(circle at 80% -10%, rgba(22, 141, 208, 0.1), transparent 32rem),
+    var(--color-night);
   color: var(--color-ink);
   font-family: var(--font-body);
 }
@@ -120,4 +122,40 @@ h1, h2, h3, h4, .font-heading {
 
 .react-flow__attribution {
   display: none;
+}
+
+.skill-tree-canvas {
+  background:
+    radial-gradient(circle at 50% 50%, rgba(18, 103, 177, 0.14), transparent 26rem),
+    radial-gradient(circle at 50% 85%, rgba(53, 196, 232, 0.08), transparent 32rem),
+    linear-gradient(180deg, #061827 0%, #04131f 100%);
+}
+
+.skill-tree-canvas::after {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  content: "";
+  background-image:
+    linear-gradient(rgba(117, 186, 224, 0.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(117, 186, 224, 0.022) 1px, transparent 1px);
+  background-size: 90px 90px;
+  mask-image: radial-gradient(circle at center, black 0%, transparent 72%);
+}
+
+.skill-tree-canvas .react-flow {
+  z-index: 1;
+}
+
+.skill-tree-canvas .react-flow__pane {
+  cursor: grab;
+}
+
+.skill-tree-canvas .react-flow__pane:active {
+  cursor: grabbing;
+}
+
+.skill-tree-canvas .react-flow__node:focus-visible {
+  outline: none;
 }

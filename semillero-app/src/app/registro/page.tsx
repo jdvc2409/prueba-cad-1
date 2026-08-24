@@ -10,11 +10,11 @@ import type { IntroItemType } from "@/lib/types";
 const STEPS = [
   { id: 1, label: "Datos" },
   { id: 2, label: "Preséntate" },
-  { id: 3, label: "Disponibilidad" },
 ] as const;
 
 export default function RegistroPage() {
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<1 | 2>(1);
+  const router = useRouter();
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-14">
@@ -30,7 +30,7 @@ export default function RegistroPage() {
           Cuéntanos quién eres.
         </h1>
         <p className="mt-3 text-sm text-muted">
-          Tres pasos cortos y pasas directo al árbol de habilidades.
+          Dos pasos cortos y pasas directo al árbol de habilidades.
         </p>
       </motion.div>
 
@@ -45,12 +45,10 @@ export default function RegistroPage() {
           )}
           {step === 2 && (
             <StepShell key="2">
-              <StepPresentacion onBack={() => setStep(1)} onNext={() => setStep(3)} />
-            </StepShell>
-          )}
-          {step === 3 && (
-            <StepShell key="3">
-              <StepDisponibilidad onBack={() => setStep(2)} />
+              <StepPresentacion
+                onBack={() => setStep(1)}
+                onNext={() => router.push("/skills")}
+              />
             </StepShell>
           )}
         </AnimatePresence>
@@ -76,8 +74,8 @@ function Stepper({
   current,
   onJump,
 }: {
-  current: 1 | 2 | 3;
-  onJump: (step: 1 | 2 | 3) => void;
+  current: 1 | 2;
+  onJump: (step: 1 | 2) => void;
 }) {
   return (
     <div className="mt-8 flex items-center">
@@ -505,148 +503,7 @@ function StepPresentacion({ onBack, onNext }: { onBack: () => void; onNext: () =
           Atrás
         </button>
         <button onClick={onNext} className={primaryBtn}>
-          Continuar
-        </button>
-      </div>
-    </div>
-  );
-}
-
-const HOURS = ["Menos de 2 h", "2–4 h", "4–6 h", "6–8 h", "Más de 8 h"];
-const DAYS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
-const MODALITY = ["Presencial", "Remota", "Ambas"];
-const TIME_OF_DAY = ["Mañana", "Mediodía", "Tarde", "Noche"];
-const COMMITMENT = [
-  "Quiero conocer",
-  "Quiero aprender",
-  "Quiero participar",
-  "Quiero liderar proyectos",
-];
-
-function Chip({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`rounded-lg border px-4 py-2 text-xs font-medium transition-colors ${
-        active
-          ? "border-tech bg-tech/15 text-ink"
-          : "border-line bg-surface text-muted hover:border-tech/60"
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
-
-function StepDisponibilidad({ onBack }: { onBack: () => void }) {
-  const { state, updateAvailability } = useAppState();
-  const router = useRouter();
-  const a = state.availability;
-
-  function toggleDay(day: string) {
-    const set = new Set(a.days);
-    if (set.has(day)) set.delete(day);
-    else set.add(day);
-    updateAvailability({ days: Array.from(set) });
-  }
-
-  return (
-    <div>
-      <p className="text-sm text-ink">
-        Esto se mide aparte de tu presentación: nos ayuda a entender cómo
-        encajar contigo, no a evaluarte.
-      </p>
-
-      <div className="mt-6 space-y-7">
-        <div>
-          <p className="mb-3 text-xs font-medium text-muted">Horas por semana</p>
-          <div className="flex flex-wrap gap-2">
-            {HOURS.map((h) => (
-              <Chip key={h} active={a.hoursPerWeek === h} onClick={() => updateAvailability({ hoursPerWeek: h })}>
-                {h}
-              </Chip>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <p className="mb-3 text-xs font-medium text-muted">Días con disponibilidad</p>
-          <div className="flex flex-wrap gap-2">
-            {DAYS.map((d) => (
-              <Chip key={d} active={a.days.includes(d)} onClick={() => toggleDay(d)}>
-                {d}
-              </Chip>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <p className="mb-3 text-xs font-medium text-muted">Modalidad</p>
-          <div className="flex flex-wrap gap-2">
-            {MODALITY.map((m) => (
-              <Chip key={m} active={a.modality === m} onClick={() => updateAvailability({ modality: m })}>
-                {m}
-              </Chip>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <p className="mb-3 text-xs font-medium text-muted">Franja habitual</p>
-          <div className="flex flex-wrap gap-2">
-            {TIME_OF_DAY.map((t) => (
-              <Chip key={t} active={a.timeOfDay === t} onClick={() => updateAvailability({ timeOfDay: t })}>
-                {t}
-              </Chip>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <p className="mb-4 text-xs font-medium text-muted">Compromiso esperado</p>
-          <div className="relative">
-            <div className="absolute left-0 right-0 top-[9px] h-0.5 bg-line" />
-            <div className="relative grid grid-cols-2 gap-y-4 sm:grid-cols-4">
-              {COMMITMENT.map((c) => {
-                const active = a.commitment === c;
-                return (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => updateAvailability({ commitment: c })}
-                    className="flex flex-col items-center gap-2.5 text-center"
-                  >
-                    <span
-                      className={`h-5 w-5 rounded-full border-2 transition-colors ${
-                        active ? "border-cyan bg-cyan" : "border-line bg-surface"
-                      }`}
-                    />
-                    <span className={`text-[11px] leading-tight ${active ? "text-ink" : "text-muted"}`}>
-                      {c}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-8 flex justify-between">
-        <button onClick={onBack} className={ghostBtn}>
-          Atrás
-        </button>
-        <button onClick={() => router.push("/skills")} className={primaryBtn}>
-          Ver el árbol de habilidades
+          Explorar mi árbol
         </button>
       </div>
     </div>

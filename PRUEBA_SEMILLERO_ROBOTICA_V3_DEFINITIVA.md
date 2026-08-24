@@ -103,8 +103,6 @@ Registro
    ↓
 Preséntate como quieras
    ↓
-Disponibilidad e intereses
-   ↓
 Árbol de Habilidades
    ├── Electrónica
    ├── Mecánica
@@ -289,51 +287,11 @@ Debe permitir combinar varios tipos de evidencia.
 
 ---
 
-# 8. Pantalla 5 — Disponibilidad
+# 8. Transición al árbol
 
-La disponibilidad debe medirse por separado de la presentación creativa.
+Al terminar la presentación creativa, el aspirante debe continuar directamente al Árbol de Habilidades.
 
-## Preguntas
-
-### Horas por semana
-
-Selector:
-
-- Menos de 2 h
-- 2–4 h
-- 4–6 h
-- 6–8 h
-- Más de 8 h
-
-### Días con disponibilidad
-
-Selector múltiple:
-
-- Lunes
-- Martes
-- Miércoles
-- Jueves
-- Viernes
-- Sábado
-
-### Modalidad
-
-- Presencial
-- Remota
-- Ambas
-
-### Franja habitual
-
-- Mañana
-- Mediodía
-- Tarde
-- Noche
-
-### Compromiso esperado
-
-Escala visual:
-
-`Quiero conocer → Quiero aprender → Quiero participar → Quiero liderar proyectos`
+No debe existir un formulario intermedio. Las áreas de interés se infieren de las ramas que la persona decide explorar voluntariamente.
 
 ---
 
@@ -1127,10 +1085,6 @@ No resumir al aspirante únicamente en una nota.
 
 ¿Entrega resultados verificables?
 
-### Disponibilidad
-
-¿Cuánto tiempo puede dedicar?
-
 ### Afinidad
 
 ¿Qué áreas seleccionó voluntariamente?
@@ -1188,7 +1142,6 @@ Tabla de candidatos:
 - Nombre
 - Carrera
 - Semestre
-- Horas disponibles
 - Progreso total
 - Ramas exploradas
 - Ramas profundas
@@ -1201,7 +1154,6 @@ Tabla de candidatos:
 - carrera;
 - semestre;
 - área de fortaleza;
-- disponibilidad;
 - progreso;
 - retos abiertos completados;
 - estado.
@@ -1626,9 +1578,6 @@ student_code
 github_url
 linkedin_url
 portfolio_url
-weekly_availability
-preferred_schedule
-commitment_level
 submitted_at
 ```
 
@@ -1944,17 +1893,16 @@ Estas métricas son apoyo para el evaluador, no una decisión automática.
 2. Información del semillero
 3. Login / registro
 4. Presentación libre
-5. Disponibilidad
-6. Árbol de habilidades
-7. Vista de reto
-8. Evidencias
-9. Perfil / progreso final
-10. Confirmación `Finalizar mi recorrido`
-11. Reflexión final en video
-12. Envío final
-13. Dashboard de evaluador
-14. Vista individual de candidato
-15. Administración básica de retos
+5. Árbol de habilidades
+6. Vista de reto
+7. Evidencias
+8. Perfil / progreso final
+9. Confirmación `Finalizar mi recorrido`
+10. Reflexión final en video
+11. Envío final
+12. Dashboard de evaluador
+13. Vista individual de candidato
+14. Administración básica de retos
 
 ---
 
@@ -1983,7 +1931,6 @@ Estas métricas son apoyo para el evaluador, no una decisión automática.
 ├── /login
 ├── /registro
 ├── /presentacion
-├── /disponibilidad
 ├── /skills
 │   ├── /design
 │   ├── /mechanics
@@ -2127,7 +2074,6 @@ La versión se considera funcional cuando:
 
 - [ ] un candidato puede registrarse;
 - [ ] puede realizar una presentación multimodal;
-- [ ] puede declarar disponibilidad;
 - [ ] puede visualizar las siete ramas;
 - [ ] puede abrir un reto;
 - [ ] puede responder y reintentar;
@@ -4375,7 +4321,6 @@ Requisitos centrales:
 ```text
 - registro y autenticación
 - presentación multimodal
-- disponibilidad
 - siete ramas de habilidad
 - nodos desbloqueables
 - retos configurables

@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import { motion } from "framer-motion";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { EASE_SPRING } from "@/lib/motion";
@@ -13,13 +19,33 @@ export interface SkillNodeData {
   dimmed: boolean;
   color: string;
   isIR?: boolean;
+  targetPosition?: Position;
+  sourcePosition?: Position;
   onOpen: (id: string) => void;
   [key: string]: unknown;
 }
 
+const HANDLE_STYLE = {
+  width: 2,
+  height: 2,
+  minWidth: 2,
+  minHeight: 2,
+  border: 0,
+  background: "transparent",
+  opacity: 0,
+  pointerEvents: "none" as const,
+};
+
 function LockIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="h-2.5 w-2.5" fill="none" stroke="currentColor" strokeWidth="2.4">
+    <svg
+      viewBox="0 0 24 24"
+      className="h-3 w-3"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.4"
+      aria-hidden="true"
+    >
       <rect x="5" y="11" width="14" height="9" rx="1.5" />
       <path d="M8 11V8a4 4 0 0 1 8 0v3" strokeLinecap="round" />
     </svg>
@@ -28,140 +54,247 @@ function LockIcon() {
 
 function CheckIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="h-2.5 w-2.5" fill="none" stroke="#061827" strokeWidth="3">
-      <path d="m5 13 4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
+    <svg
+      viewBox="0 0 24 24"
+      className="h-3 w-3"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="3"
+      aria-hidden="true"
+    >
+      <path
+        d="m5 13 4 4L19 7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function ReadyIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-3 w-3"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      aria-hidden="true"
+    >
+      <path d="M5 12h13M13 7l5 5-5 5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
 
 export function SkillNodeCard({ data }: NodeProps) {
   const d = data as SkillNodeData;
-  const { def, status, dimmed, color, isIR } = d;
-  const [hover, setHover] = useState(false);
+  const {
+    def,
+    status,
+    dimmed,
+    color,
+    isIR = false,
+    targetPosition = Position.Top,
+    sourcePosition = Position.Bottom,
+  } = d;
+  const [tooltipVisible, setTooltipVisible] = useState(false);
   const [justUnlocked, setJustUnlocked] = useState(false);
   const [justCompleted, setJustCompleted] = useState(false);
   const prevStatus = useRef(status);
+  const tooltipId = useId();
 
   useEffect(() => {
     const prev = prevStatus.current;
     prevStatus.current = status;
+
     if (prev === "locked" && status === "available") {
       setJustUnlocked(true);
-      const t = setTimeout(() => setJustUnlocked(false), 900);
-      return () => clearTimeout(t);
+      const timeout = setTimeout(() => setJustUnlocked(false), 900);
+      return () => clearTimeout(timeout);
     }
+
     if (prev === "available" && status === "completed") {
       setJustCompleted(true);
-      const t = setTimeout(() => setJustCompleted(false), 500);
-      return () => clearTimeout(t);
+      const timeout = setTimeout(() => setJustCompleted(false), 500);
+      return () => clearTimeout(timeout);
     }
   }, [status]);
 
+  const statusLabel =
+    status === "completed"
+      ? "Completado"
+      : status === "available"
+        ? "Listo"
+        : "Bloqueado";
+
   const bodyClass =
     status === "completed"
-      ? "border-ice/70 bg-gradient-to-br from-tech to-cyan"
+      ? "border-ice/65 bg-gradient-to-br from-tech to-cyan text-night"
       : status === "available"
-      ? "border-2"
-      : "border-dashed border border-line bg-surface/55";
+        ? "border-2 bg-surface-raised text-ink"
+        : "border border-dashed border-muted/55 bg-surface/80 text-muted";
 
-  const bodyStyle: React.CSSProperties =
-    status === "available"
+  const bodyStyle: CSSProperties = {
+    ...(status === "available"
       ? {
           borderColor: color,
-          background: `linear-gradient(135deg, #0E2C44, ${color}26)`,
-          boxShadow: `0 0 0 3px ${color}22`,
+          background: `linear-gradient(140deg, #0E2C44 45%, ${color}26)`,
+          boxShadow: `0 0 0 3px ${color}1f`,
         }
-      : {};
+      : {}),
+    ...(isIR
+      ? {
+          clipPath:
+            "polygon(9% 0, 91% 0, 100% 50%, 91% 100%, 9% 100%, 0 50%)",
+        }
+      : {}),
+  };
 
-  if (isIR) {
-    bodyStyle.boxShadow = bodyStyle.boxShadow
-      ? `${bodyStyle.boxShadow}, 0 0 0 1px rgba(221,244,255,0.35)`
-      : "0 0 0 1px rgba(221,244,255,0.35)";
-  }
+  const statusClass =
+    status === "completed"
+      ? "border-night/15 bg-night/15 text-night"
+      : status === "available"
+        ? "border-current/25 bg-night/35"
+        : "border-muted/25 bg-night/30 text-muted";
 
   return (
     <div
-      className="relative flex flex-col items-center"
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
+      className="relative flex w-[168px] flex-col items-center overflow-visible"
+      onMouseEnter={() => setTooltipVisible(true)}
+      onMouseLeave={() => setTooltipVisible(false)}
     >
-      <Handle type="target" position={Position.Top} style={{ opacity: 0 }} />
-      <Handle type="source" position={Position.Bottom} style={{ opacity: 0 }} />
+      <Handle
+        id="in"
+        type="target"
+        position={targetPosition}
+        style={HANDLE_STYLE}
+        isConnectable={false}
+      />
+      <Handle
+        id="out"
+        type="source"
+        position={sourcePosition}
+        style={HANDLE_STYLE}
+        isConnectable={false}
+      />
+      <Handle
+        id="cross"
+        type="source"
+        position={targetPosition}
+        style={HANDLE_STYLE}
+        isConnectable={false}
+      />
 
-      {hover && (
+      {tooltipVisible && (
         <motion.div
+          id={tooltipId}
+          role="tooltip"
           initial={{ opacity: 0, y: 4 }}
           animate={{ opacity: 1, y: 0 }}
-          className="pointer-events-none absolute -top-2 z-20 w-44 -translate-x-1/2 -translate-y-full rounded-lg border border-line bg-surface px-3 py-2 text-left shadow-xl"
-          style={{ left: "50%" }}
+          className="pointer-events-none absolute -top-3 z-30 w-48 -translate-y-full rounded-xl border border-line bg-surface px-3 py-2.5 text-left shadow-2xl"
         >
-          <p className="text-xs font-semibold text-ink">{def.title}</p>
-          <p className="mt-1 text-[10px] text-muted">
-            {status === "completed" ? "Completado" : status === "available" ? "Disponible — clic para ver el reto" : "Bloqueado"}
+          <p className="text-xs font-semibold leading-4 text-ink">{def.title}</p>
+          <p className="mt-1 text-[11px] leading-4 text-muted">
+            {status === "completed"
+              ? "Reto completado. Puedes volver a revisar el detalle."
+              : status === "available"
+                ? "Reto listo. Ábrelo para ver las instrucciones."
+                : "Abre el reto para consultar sus prerrequisitos."}
           </p>
         </motion.div>
       )}
 
-      <motion.button
-        type="button"
-        onClick={() => d.onOpen(def.id)}
-        initial={{ opacity: 0, scale: 0.82 }}
-        animate={{
-          opacity: dimmed ? 0.4 : 1,
-          scale: justCompleted ? [1, 1.08, 1] : 1,
-        }}
-        transition={{ duration: 0.32, ease: EASE_SPRING }}
-        whileHover={{ y: -2 }}
-        whileTap={{ scale: 0.97 }}
-        style={{ width: isIR ? 208 : 152, ...bodyStyle }}
-        className={`relative flex cursor-pointer flex-col gap-1.5 rounded-2xl px-2.5 py-2 text-left shadow-md transition-shadow ${bodyClass} ${
-          dimmed ? "grayscale" : ""
-        } ${justUnlocked ? "ring-pulse" : ""}`}
+      <div
+        className={isIR ? "drop-shadow-[0_12px_22px_rgba(53,196,232,0.2)]" : ""}
       >
-        {isIR && (
-          <p className="text-[8.5px] font-semibold uppercase tracking-wider text-ice">
-            Reto transversal
-          </p>
-        )}
-        <div className="flex items-start gap-1.5">
+        <motion.button
+          type="button"
+          onClick={() => d.onOpen(def.id)}
+          onFocus={() => setTooltipVisible(true)}
+          onBlur={() => setTooltipVisible(false)}
+          initial={{ opacity: 0, scale: 0.86 }}
+          animate={{
+            opacity: dimmed ? 0.42 : 1,
+            scale: justCompleted ? [1, 1.07, 1] : 1,
+          }}
+          transition={{ duration: 0.32, ease: EASE_SPRING }}
+          whileHover={{ y: -2 }}
+          whileTap={{ scale: 0.97 }}
+          aria-label={`${def.title}. Estado: ${statusLabel}. Abrir detalle.`}
+          aria-describedby={tooltipVisible ? tooltipId : undefined}
+          data-state={status}
+          style={bodyStyle}
+          className={`nodrag nopan relative flex min-h-[94px] w-[168px] cursor-pointer flex-col gap-2 overflow-hidden px-3 py-3 text-left shadow-lg transition-[box-shadow,filter] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-night ${
+            isIR ? "min-h-[112px] px-5 py-4" : "rounded-2xl"
+          } ${bodyClass} ${dimmed ? "grayscale" : ""} ${
+            justUnlocked ? "ring-pulse" : ""
+          }`}
+        >
           <span
-            className={`flex shrink-0 items-center justify-center rounded-[7px] ${isIR ? "h-7 w-7" : "h-[22px] w-[22px]"}`}
-            style={{
-              background: status === "completed" ? "rgba(6,24,39,0.18)" : `${color}26`,
-              color: status === "locked" ? "#9CB6C8" : status === "completed" ? "#061827" : color,
-            }}
-          >
-            <BranchIcon branch={def.branchId} className={isIR ? "h-4 w-4" : "h-3 w-3"} />
-          </span>
-          <div className="min-w-0 flex-1 pt-0.5">
+            aria-hidden="true"
+            className="absolute inset-x-0 top-0 h-1"
+            style={{ backgroundColor: status === "locked" ? "#6f8797" : color }}
+          />
+
+          {isIR && (
+            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-current/75">
+              Reto integrador
+            </p>
+          )}
+
+          <div className="flex min-w-0 items-start gap-2">
+            <span
+              className={`flex shrink-0 items-center justify-center border ${
+                isIR ? "h-8 w-8 rotate-45 rounded-[9px]" : "h-7 w-7 rounded-lg"
+              }`}
+              style={{
+                borderColor:
+                  status === "completed" ? "rgba(6,24,39,0.2)" : `${color}55`,
+                background:
+                  status === "completed" ? "rgba(6,24,39,0.14)" : `${color}1f`,
+                color:
+                  status === "locked"
+                    ? "#9CB6C8"
+                    : status === "completed"
+                      ? "#061827"
+                      : color,
+              }}
+            >
+              <BranchIcon
+                branch={def.branchId}
+                className={`${isIR ? "h-4 w-4 -rotate-45" : "h-3.5 w-3.5"}`}
+              />
+            </span>
+
             <p
-              className={`line-clamp-2 font-semibold ${isIR ? "text-[13px] leading-[16px]" : "text-[11px] leading-[14px]"}`}
-              style={{ color: status === "completed" ? "#061827" : status === "locked" ? "#9CB6C8" : "#F5FAFD" }}
+              className={`line-clamp-3 min-w-0 flex-1 font-semibold ${
+                isIR ? "text-[13px] leading-[17px]" : "text-xs leading-4"
+              }`}
             >
               {def.title}
             </p>
           </div>
-        </div>
-        <p
-          className="truncate text-[8.5px] font-medium uppercase tracking-wider"
-          style={{ color: status === "completed" ? "rgba(6,24,39,0.65)" : "#9CB6C8" }}
-        >
-          {def.typeLabel}
-        </p>
 
-        <span
-          className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full border-2"
-          style={{
-            borderColor: "#061827",
-            background:
-              status === "completed" ? "#58C7A2" : status === "available" ? color : "#0B2438",
-          }}
-        >
-          {status === "completed" && <CheckIcon />}
-          {status === "locked" && <LockIcon />}
-          {status === "available" && <span className="h-1.5 w-1.5 rounded-full bg-[#061827]/40" />}
-        </span>
-      </motion.button>
+          <div className="mt-auto flex items-end justify-between gap-2">
+            <span className="min-w-0 truncate text-[11px] font-medium uppercase tracking-[0.08em] opacity-70">
+              {def.typeLabel}
+            </span>
+            <span
+              className={`flex shrink-0 items-center gap-1 rounded-full border px-1.5 py-1 text-[11px] font-semibold leading-none ${statusClass}`}
+              style={status === "available" ? { color } : undefined}
+            >
+              {status === "completed" ? (
+                <CheckIcon />
+              ) : status === "available" ? (
+                <ReadyIcon />
+              ) : (
+                <LockIcon />
+              )}
+              {statusLabel}
+            </span>
+          </div>
+        </motion.button>
+      </div>
     </div>
   );
 }
