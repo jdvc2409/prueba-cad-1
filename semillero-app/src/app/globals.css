@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 @theme inline {
-  --color-base: #061827;
+  --color-night: #061827;
   --color-surface: #0b2438;
   --color-surface-raised: #0e2c44;
   --color-action: #1267b1;
@@ -26,7 +26,7 @@ html {
 }
 
 body {
-  background: var(--color-base);
+  background: var(--color-night);
   color: var(--color-ink);
   font-family: var(--font-body);
 }
@@ -37,7 +37,7 @@ h1, h2, h3, h4, .font-heading {
 
 ::selection {
   background: var(--color-tech);
-  color: var(--color-base);
+  color: var(--color-night);
 }
 
 ::-webkit-scrollbar {
@@ -45,12 +45,12 @@ h1, h2, h3, h4, .font-heading {
   height: 10px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--color-base);
+  background: var(--color-night);
 }
 ::-webkit-scrollbar-thumb {
   background: var(--color-surface-raised);
   border-radius: 8px;
-  border: 2px solid var(--color-base);
+  border: 2px solid var(--color-night);
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-action);
@@ -80,6 +80,20 @@ h1, h2, h3, h4, .font-heading {
 }
 .pulse-glow {
   animation: pulse-glow 2.4s ease-in-out infinite;
+}
+
+/* One-shot "just unlocked" announcement — never infinite, per motion guidance:
+   continuous motion is reserved for the single "ready to finish" CTA above. */
+@keyframes ring-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(53, 196, 232, 0.5);
+  }
+  100% {
+    box-shadow: 0 0 0 16px rgba(53, 196, 232, 0);
+  }
+}
+.ring-pulse {
+  animation: ring-pulse 0.85s cubic-bezier(0.4, 0, 0.2, 1) 1;
 }
 
 @keyframes drift {

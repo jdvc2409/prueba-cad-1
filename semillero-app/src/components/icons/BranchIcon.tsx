@@ -54,9 +54,11 @@ const PATHS: Record<BranchId, React.ReactNode> = {
 export function BranchIcon({
   branch,
   className,
+  style,
 }: {
   branch: BranchId;
   className?: string;
+  style?: React.CSSProperties;
 }) {
   return (
     <svg
@@ -67,6 +69,7 @@ export function BranchIcon({
       strokeLinecap="round"
       strokeLinejoin="round"
       className={className}
+      style={style}
     >
       {PATHS[branch]}
     </svg>

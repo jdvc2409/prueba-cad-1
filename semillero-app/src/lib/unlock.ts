@@ -58,3 +58,12 @@ export function branchProgressPercent(
   const done = branchNodes.filter((node) => progress[node.id] === "completed").length;
   return Math.round((done / branchNodes.length) * 100);
 }
+
+export function branchCompletedCount(
+  progress: Record<string, NodeStatus>,
+  branchId: string
+): number {
+  return SKILL_NODES.filter(
+    (node) => node.branchId === branchId && progress[node.id] === "completed"
+  ).length;
+}

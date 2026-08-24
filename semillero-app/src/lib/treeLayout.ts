@@ -2,26 +2,27 @@ import { BRANCH_ORDER } from "@/lib/data/branches";
 import { ALL_NODES, IR_NODE } from "@/lib/data/nodes";
 import type { BranchId } from "@/lib/types";
 
-const RING_BASE = 210;
-const RING_GAP = 118;
-const IR_RADIUS_EXTRA = 150;
+export const LANE_PITCH = 192;
+export const TIER_HEIGHT = 132;
+export const LANE_HEADER_Y = -120;
+export const MAX_TIER = 6;
 
-function branchAngleDeg(branchId: BranchId): number {
-  const index = BRANCH_ORDER.indexOf(branchId);
-  const step = 360 / BRANCH_ORDER.length;
-  return -90 + index * step;
+function laneIndex(branchId: BranchId): number {
+  return BRANCH_ORDER.indexOf(branchId);
 }
 
-function offsetAngleDeg(depth: number): number {
-  const base = 20;
-  return base / (1 + depth * 0.55);
+export function laneX(branchId: BranchId): number {
+  const center = (BRANCH_ORDER.length - 1) / 2;
+  return (laneIndex(branchId) - center) * LANE_PITCH;
+}
+
+export function tierY(depth: number): number {
+  return depth * TIER_HEIGHT;
 }
 
 export interface NodePosition {
   x: number;
   y: number;
-  angleDeg: number;
-  radius: number;
 }
 
 export function layoutPositions(): Record<string, NodePosition> {
@@ -29,29 +30,19 @@ export function layoutPositions(): Record<string, NodePosition> {
 
   for (const node of ALL_NODES) {
     if (node.id === IR_NODE.id) continue;
-    const baseAngle = branchAngleDeg(node.branchId);
-    const spread = offsetAngleDeg(node.depth) * node.offset;
-    const angleDeg = baseAngle + spread;
-    const radius = RING_BASE + node.depth * RING_GAP;
-    const rad = (angleDeg * Math.PI) / 180;
-    positions[node.id] = {
-      x: Math.cos(rad) * radius,
-      y: Math.sin(rad) * radius,
-      angleDeg,
-      radius,
-    };
+    const x = laneX(node.branchId) + node.offset * 16;
+    const y = tierY(node.depth) + (node.offset !== 0 ? node.offset * 30 : 0);
+    positions[node.id] = { x, y };
   }
 
-  const maxDepth = Math.max(...ALL_NODES.filter((n) => n.id !== IR_NODE.id).map((n) => n.depth));
-  const irRadius = RING_BASE + maxDepth * RING_GAP + IR_RADIUS_EXTRA;
-  const irAngle = 90;
-  const irRad = (irAngle * Math.PI) / 180;
   positions[IR_NODE.id] = {
-    x: Math.cos(irRad) * irRadius,
-    y: Math.sin(irRad) * irRadius,
-    angleDeg: irAngle,
-    radius: irRadius,
+    x: 0,
+    y: tierY(MAX_TIER) + TIER_HEIGHT + 110,
   };
 
   return positions;
+}
+
+export function laneBottomY(): number {
+  return tierY(MAX_TIER) + TIER_HEIGHT / 2;
 }

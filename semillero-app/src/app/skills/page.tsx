@@ -15,28 +15,33 @@ import {
 import "@xyflow/react/dist/style.css";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppState } from "@/lib/state/AppStateContext";
-import { ALL_NODES, IR_NODE, nodeById } from "@/lib/data/nodes";
-import { BRANCHES } from "@/lib/data/branches";
-import { layoutPositions } from "@/lib/treeLayout";
+import { ALL_NODES, APPLICATION_NODE_IDS, IR_NODE, SKILL_NODES, nodeById } from "@/lib/data/nodes";
+import { BRANCHES, BRANCH_ORDER } from "@/lib/data/branches";
+import { LANE_HEADER_Y, laneX, layoutPositions } from "@/lib/treeLayout";
 import {
+  branchCompletedCount,
+  branchProgressPercent,
   branchesExplored,
   canFinishJourney,
   completedCount,
   computeAllStatuses,
 } from "@/lib/unlock";
-import { CandidateNode } from "@/components/tree/CandidateNode";
 import { SkillNodeCard } from "@/components/tree/SkillNodeCard";
-import { RadialEdge } from "@/components/tree/RadialEdge";
+import { LaneHeaderNode } from "@/components/tree/LaneHeaderNode";
+import { LaneEdge } from "@/components/tree/LaneEdge";
+import { TravelerCard } from "@/components/tree/TravelerCard";
+import { TreeHeader } from "@/components/tree/TreeHeader";
 import { NodeDetailPanel } from "@/components/tree/NodeDetailPanel";
+import type { BranchId } from "@/lib/types";
 
-const nodeTypes = { candidate: CandidateNode, skill: SkillNodeCard };
-const edgeTypes = { radial: RadialEdge };
+const nodeTypes = { skill: SkillNodeCard, laneHeader: LaneHeaderNode };
+const edgeTypes = { lane: LaneEdge };
 
 function TreeCanvas() {
   const { state, completeNode } = useAppState();
   const [overview, setOverview] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const { fitView } = useReactFlow();
+  const { fitView, setCenter } = useReactFlow();
 
   const positions = useMemo(() => layoutPositions(), []);
   const statuses = useMemo(() => computeAllStatuses(state.progress), [state.progress]);
@@ -50,19 +55,26 @@ function TreeCanvas() {
   }, [overview, statuses]);
 
   const flowNodes: Node[] = useMemo(() => {
-    const candidate: Node = {
-      id: "candidate",
-      type: "candidate",
-      position: { x: 0, y: 0 },
-      draggable: false,
-      selectable: false,
-      data: {
-        name: state.profile.fullName,
-        completed: completedCount(state.progress),
-        branches: branchesExplored(state.progress),
-        ready: canFinishJourney(state.progress),
-      },
-    };
+    const laneHeaders: Node[] = BRANCH_ORDER.map((id) => {
+      const branch = BRANCHES[id];
+      const total = SKILL_NODES.filter((n) => n.branchId === id).length;
+      const done = branchCompletedCount(state.progress, id);
+      return {
+        id: `lane-${id}`,
+        type: "laneHeader",
+        position: { x: laneX(id), y: LANE_HEADER_Y },
+        draggable: false,
+        selectable: false,
+        data: {
+          branchId: id,
+          name: branch.name,
+          color: branch.color,
+          done,
+          total,
+          pct: branchProgressPercent(state.progress, id),
+        },
+      };
+    });
 
     const skillNodes: Node[] = ALL_NODES.filter((n) => visible.has(n.id)).map((n) => ({
       id: n.id,
@@ -80,71 +92,64 @@ function TreeCanvas() {
       },
     }));
 
-    return [candidate, ...skillNodes];
-  }, [state.profile.fullName, state.progress, positions, statuses, visible, overview]);
+    return [...laneHeaders, ...skillNodes];
+  }, [state.progress, positions, statuses, visible, overview]);
 
   const flowEdges: Edge[] = useMemo(() => {
     const edges: Edge[] = [];
-    const center = { x: 0, y: 0 };
 
     for (const n of ALL_NODES) {
-      if (!visible.has(n.id)) continue;
-
-      if (n.id === IR_NODE.id) {
+      if (n.id === IR_NODE.id || !visible.has(n.id)) continue;
+      for (const reqId of n.requires) {
+        if (!visible.has(reqId)) continue;
         edges.push({
-          id: `candidate-${n.id}`,
-          source: "candidate",
+          id: `${reqId}-${n.id}`,
+          source: reqId,
           target: n.id,
-          type: "radial",
+          type: "lane",
           data: {
-            x1: center.x,
-            y1: center.y,
+            x1: positions[reqId].x,
+            y1: positions[reqId].y,
             x2: positions[n.id].x,
             y2: positions[n.id].y,
+            color: BRANCHES[n.branchId].color,
+            active: statuses[reqId] === "completed",
             dimmed: overview && statuses[n.id] === "locked",
+            variant: "lane",
           },
         });
-        continue;
-      }
-
-      if (n.requires.length === 0) {
-        edges.push({
-          id: `candidate-${n.id}`,
-          source: "candidate",
-          target: n.id,
-          type: "radial",
-          data: {
-            x1: center.x,
-            y1: center.y,
-            x2: positions[n.id].x,
-            y2: positions[n.id].y,
-            dimmed: overview && statuses[n.id] === "locked",
-          },
-        });
-      } else {
-        for (const reqId of n.requires) {
-          if (!visible.has(reqId)) continue;
-          edges.push({
-            id: `${reqId}-${n.id}`,
-            source: reqId,
-            target: n.id,
-            type: "radial",
-            data: {
-              x1: positions[reqId].x,
-              y1: positions[reqId].y,
-              x2: positions[n.id].x,
-              y2: positions[n.id].y,
-              dimmed: overview && statuses[n.id] === "locked",
-            },
-          });
-        }
       }
     }
+
+    if (visible.has(IR_NODE.id)) {
+      for (const appId of APPLICATION_NODE_IDS) {
+        if (!visible.has(appId)) continue;
+        const appNode = nodeById(appId);
+        if (!appNode) continue;
+        edges.push({
+          id: `feed-${appId}`,
+          source: appId,
+          target: IR_NODE.id,
+          type: "lane",
+          data: {
+            x1: positions[appId].x,
+            y1: positions[appId].y,
+            x2: positions[IR_NODE.id].x,
+            y2: positions[IR_NODE.id].y,
+            color: BRANCHES[appNode.branchId].color,
+            active: statuses[appId] === "completed",
+            dimmed: overview && statuses[IR_NODE.id] === "locked",
+            variant: "irfeed",
+          },
+        });
+      }
+    }
+
     return edges;
   }, [visible, positions, statuses, overview]);
 
   useEffect(() => {
-    const t = setTimeout(() => fitView({ padding: 0.15, duration: 500 }), 60);
+    const t = setTimeout(() => fitView({ padding: 0.12, duration: 500 }), 60);
     return () => clearTimeout(t);
   }, [overview, fitView]);
 
@@ -166,26 +171,33 @@ function TreeCanvas() {
     [completeNode]
   );
 
-  return (
-    <div className="relative h-[calc(100vh-58px)] w-full bg-base">
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start justify-between gap-3 p-4 sm:p-6">
-        <div className="pointer-events-auto rounded-xl border border-line bg-surface/80 px-4 py-2.5 text-xs text-muted backdrop-blur">
-          <span className="font-semibold text-ink">
-            {completedCount(state.progress)}
-          </span>{" "}
-          nodos completados ·{" "}
-          <span className="font-semibold text-ink">
-            {branchesExplored(state.progress)}
-          </span>{" "}
-          ramas exploradas
-        </div>
+  const handleJumpToLane = useCallback(
+    (branchId: BranchId) => {
+      setCenter(laneX(branchId), 260, { zoom: 0.85, duration: 600 });
+    },
+    [setCenter]
+  );
 
-        <button
-          onClick={() => setOverview((v) => !v)}
-          className="pointer-events-auto rounded-xl border border-line bg-surface/80 px-4 py-2.5 text-xs font-medium text-ink backdrop-blur transition-colors hover:border-tech"
-        >
-          {overview ? "Ver mi progreso" : "Ver árbol completo"}
-        </button>
+  return (
+    <div className="relative h-[calc(100vh-58px)] w-full bg-night">
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 p-4 sm:p-5">
+        <TreeHeader
+          progress={state.progress}
+          overview={overview}
+          onToggleOverview={() => setOverview((v) => !v)}
+          onJumpToLane={handleJumpToLane}
+          completedTotal={completedCount(state.progress)}
+          branchesTotal={branchesExplored(state.progress)}
+        />
+      </div>
+
+      <div className="pointer-events-none absolute bottom-5 left-4 z-10 sm:left-5">
+        <TravelerCard
+          name={state.profile.fullName}
+          completed={completedCount(state.progress)}
+          branches={branchesExplored(state.progress)}
+          progress={state.progress}
+        />
       </div>
 
       <ReactFlow
@@ -194,7 +206,7 @@ function TreeCanvas() {
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         fitView
-        fitViewOptions={{ padding: 0.15 }}
+        fitViewOptions={{ padding: 0.12 }}
         nodesDraggable={false}
         nodesConnectable={false}
         elementsSelectable={false}
@@ -205,7 +217,7 @@ function TreeCanvas() {
         <Background variant={BackgroundVariant.Dots} color="#123449" gap={28} size={1.4} />
         <Controls
           showInteractive={false}
-          className="!bottom-6 !left-6 !rounded-xl !border !border-line !bg-surface/90 [&>button]:!border-line [&>button]:!bg-surface [&>button]:!text-ink"
+          className="!bottom-6 !right-6 !left-auto !rounded-xl !border !border-line !bg-surface/90 [&>button]:!border-line [&>button]:!bg-surface [&>button]:!text-ink"
         />
       </ReactFlow>
 
@@ -215,7 +227,7 @@ function TreeCanvas() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
-            className="pointer-events-none absolute inset-x-0 bottom-6 z-10 flex justify-center"
+            className="pointer-events-none absolute inset-x-0 bottom-28 z-10 flex justify-center sm:bottom-6"
           >
             <Link
               href="/perfil"

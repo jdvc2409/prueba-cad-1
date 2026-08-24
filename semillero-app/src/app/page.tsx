@@ -4,8 +4,7 @@ import Link from "next/link";
 import { motion, type Variants } from "framer-motion";
 import { BRANCHES, BRANCH_ORDER } from "@/lib/data/branches";
 import { BranchIcon } from "@/components/icons/BranchIcon";
-
-const EASE_OUT = [0.16, 1, 0.3, 1] as const;
+import { EASE_OUT } from "@/lib/motion";
 
 const fadeUp: Variants = {
   hidden: { opacity: 0, y: 24 },
@@ -15,6 +14,24 @@ const fadeUp: Variants = {
     transition: { duration: 0.6, delay: i * 0.08, ease: EASE_OUT },
   }),
 };
+
+const HOW_IT_WORKS = [
+  {
+    n: "01",
+    title: "Regístrate y preséntate",
+    body: "Datos básicos y una presentación libre — texto, imagen, audio, video o un enlace a tu portafolio.",
+  },
+  {
+    n: "02",
+    title: "Explora el árbol",
+    body: "Siete ramas, decenas de retos. Empiezas por donde quieras y avanzas a tu ritmo.",
+  },
+  {
+    n: "03",
+    title: "Construye tu perfil",
+    body: "Cada reto que completas queda registrado. No hay nota — hay un mapa de lo que decidiste explorar.",
+  },
+];
 
 export default function LandingPage() {
   return (
@@ -106,12 +123,12 @@ export default function LandingPage() {
             >
               Comenzar experiencia
             </Link>
-            <Link
-              href="/semillero"
+            <a
+              href="#como-funciona"
               className="rounded-lg border border-line px-7 py-3 text-sm font-semibold text-ink transition-colors hover:border-tech hover:bg-surface"
             >
-              Conocer el semillero
-            </Link>
+              Ver cómo funciona
+            </a>
           </motion.div>
 
           <motion.p
@@ -126,7 +143,69 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="relative border-t border-line bg-base px-6 py-20">
+      <section id="como-funciona" className="relative border-t border-line bg-night px-6 py-20 scroll-mt-16">
+        <div className="mx-auto max-w-6xl">
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-80px" }}
+            transition={{ duration: 0.5 }}
+            className="max-w-2xl"
+          >
+            <span className="text-xs font-medium uppercase tracking-widest text-cyan">
+              Cómo funciona
+            </span>
+            <h2 className="mt-3 font-heading text-2xl font-semibold text-ink sm:text-3xl">
+              Tres pasos. Sin examen tradicional.
+            </h2>
+          </motion.div>
+
+          <div className="relative mt-10 grid grid-cols-1 gap-6 sm:grid-cols-3">
+            <div className="pointer-events-none absolute left-0 right-0 top-6 hidden h-px bg-line sm:block" />
+            {HOW_IT_WORKS.map((step, i) => (
+              <motion.div
+                key={step.n}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-40px" }}
+                transition={{ duration: 0.45, delay: i * 0.1 }}
+                className="relative"
+              >
+                <span className="relative z-10 mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-cyan/40 bg-night font-heading text-sm font-semibold text-cyan">
+                  {step.n}
+                </span>
+                <h3 className="font-heading text-base font-semibold text-ink">
+                  {step.title}
+                </h3>
+                <p className="mt-1.5 text-sm leading-relaxed text-muted">
+                  {step.body}
+                </p>
+              </motion.div>
+            ))}
+          </div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-40px" }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="mt-12 rounded-2xl border border-line bg-surface/60 p-6 sm:p-8"
+          >
+            <p className="font-heading text-sm font-semibold text-cyan">
+              ¿Qué es el Semillero?
+            </p>
+            <p className="mt-3 max-w-3xl text-sm leading-relaxed text-muted sm:text-base">
+              Un equipo multidisciplinario de estudiantes que diseña,
+              construye y programa proyectos reales de robótica. No necesitas
+              dominar todas las áreas: los equipos combinan diseño, mecánica,
+              electrónica, control, software e IA, y cada persona aporta
+              desde su fortaleza mientras aprende de las demás.
+            </p>
+          </motion.div>
+        </div>
+      </section>
+
+      <section className="relative border-t border-line bg-night px-6 py-20">
         <div className="mx-auto max-w-6xl">
           <motion.div
             initial={{ opacity: 0, y: 16 }}
@@ -173,6 +252,21 @@ export default function LandingPage() {
               );
             })}
           </div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-40px" }}
+            transition={{ duration: 0.5, delay: 0.15 }}
+            className="mt-12 flex justify-center"
+          >
+            <Link
+              href="/registro"
+              className="rounded-lg bg-gradient-to-r from-action to-tech px-7 py-3 text-sm font-semibold text-ink shadow-lg shadow-action/20 transition-transform hover:scale-[1.03] active:scale-[0.98]"
+            >
+              Comenzar experiencia
+            </Link>
+          </motion.div>
         </div>
       </section>
     </div>

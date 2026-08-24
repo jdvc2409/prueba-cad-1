@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { BRANCHES } from "@/lib/data/branches";
 import { BranchIcon } from "@/components/icons/BranchIcon";
@@ -18,6 +20,21 @@ export function NodeDetailPanel({
   onClose: () => void;
   onComplete: (id: string) => void;
 }) {
+  // Portal to <body> so `fixed` positioning isn't captured by an animated
+  // ancestor (page-transition wrapper applies a transform, which creates a
+  // new containing block for `position: fixed` descendants).
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    // Client-only flag so the portal target (document.body) is never touched during SSR.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMounted(true);
+  }, []);
+
+  const content = renderPanel();
+  if (!mounted) return null;
+  return createPortal(content, document.body);
+
+  function renderPanel() {
   const branch = node ? BRANCHES[node.branchId] : null;
 
   return (
@@ -123,4 +140,5 @@ export function NodeDetailPanel({
       )}
     </AnimatePresence>
   );
+  }
 }
