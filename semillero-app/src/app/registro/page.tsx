@@ -5,7 +5,24 @@ import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useAppState } from "@/lib/state/AppStateContext";
 import { EASE_OUT } from "@/lib/motion";
-import { canAccessSkillTree, getRegistrationStep } from "@/lib/journey";
+import {
+  canAccessSkillTree,
+  getRegistrationStep,
+  isRequiredProfileComplete,
+} from "@/lib/journey";
+import {
+  MAX_CUMULATIVE_AVERAGE,
+  MIN_ALLOWED_CUMULATIVE_AVERAGE,
+  MIN_CUMULATIVE_AVERAGE,
+  MIN_SEMESTER,
+  PROGRAM_OPTIONS,
+  UNISABANA_EMAIL_DOMAIN,
+  UNISABANA_EMAIL_PATTERN,
+  isAllowedProgram,
+  isUnisabanaEmail,
+  isValidCumulativeAverage,
+  isValidSemester,
+} from "@/lib/admissions";
 import type { IntroItemType } from "@/lib/types";
 
 const STEPS = [
@@ -31,11 +48,12 @@ export default function RegistroPage() {
       router.replace("/");
       return;
     }
-    if (state.submitted) {
+    const canAccess = canAccessSkillTree(state);
+    if (state.submitted && canAccess) {
       router.replace("/perfil");
       return;
     }
-    if (canAccessSkillTree(state)) router.replace("/skills");
+    if (canAccess) router.replace("/skills");
   }, [hydrated, router, sessionActive, state]);
 
   function goToStep(nextStep: 1 | 2) {
@@ -189,31 +207,55 @@ function Stepper({
 }
 
 function Field({
+  id,
   label,
   optional,
+  hint,
+  error,
   children,
 }: {
+  id: string;
   label: string;
   optional?: boolean;
+  hint?: string;
+  error?: string;
   children: React.ReactNode;
 }) {
   return (
-    <label className="block">
-      <span className="mb-1.5 flex items-center gap-2 text-xs font-medium text-muted">
+    <div className="block">
+      <label
+        htmlFor={id}
+        className="mb-1.5 flex items-center gap-2 text-xs font-medium text-muted"
+      >
         {label}
         {optional && (
           <span className="rounded-full bg-surface-raised px-2 py-0.5 text-[10px] text-muted">
             opcional
           </span>
         )}
-      </span>
+      </label>
       {children}
-    </label>
+      {hint && (
+        <p id={`${id}-hint`} className="mt-1.5 text-[11px] leading-relaxed text-muted">
+          {hint}
+        </p>
+      )}
+      {error && (
+        <p
+          id={`${id}-error`}
+          role="alert"
+          className="mt-1.5 text-[11px] font-medium leading-relaxed text-danger"
+        >
+          {error}
+        </p>
+      )}
+    </div>
   );
 }
 
 const inputClass =
   "w-full rounded-lg border border-line bg-surface px-3.5 py-2.5 text-sm text-ink placeholder:text-muted/60 outline-none transition-colors focus:border-tech";
+const invalidInputClass = "border-danger/70 focus:border-danger";
 
 const primaryBtn =
   "rounded-lg bg-gradient-to-r from-action to-tech px-6 py-2.5 text-sm font-semibold text-ink shadow-lg shadow-action/20 transition-transform hover:scale-[1.02] active:scale-[0.98]";
@@ -222,54 +264,184 @@ const ghostBtn = "rounded-lg px-5 py-2.5 text-sm font-medium text-muted transiti
 
 function StepDatos({ onNext }: { onNext: () => void }) {
   const { state, updateProfile } = useAppState();
+  const [attempted, setAttempted] = useState(false);
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
   const p = state.profile;
 
-  const canContinue =
-    p.fullName.trim() &&
-    p.email.trim() &&
-    p.program.trim() &&
-    p.semester.trim() &&
-    p.consentData &&
-    p.consentFiles;
+  const fullNameValid = Boolean(p.fullName.trim());
+  const emailValid = isUnisabanaEmail(p.email);
+  const programValid = isAllowedProgram(p.program);
+  const semesterValid = isValidSemester(p.semester);
+  const averageValid = isValidCumulativeAverage(p.cumulativeAverage);
+  const canContinue = isRequiredProfileComplete(p);
+
+  function shouldShowError(field: string, valid: boolean) {
+    return !valid && (attempted || touched[field]);
+  }
+
+  function touch(field: string) {
+    setTouched((current) => ({ ...current, [field]: true }));
+  }
+
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!canContinue) {
+      setAttempted(true);
+      return;
+    }
+    onNext();
+  }
+
+  const fullNameError = shouldShowError("fullName", fullNameValid)
+    ? "Ingresa tu nombre completo."
+    : undefined;
+  const emailError = shouldShowError("email", emailValid)
+    ? `Usa un correo institucional que termine exactamente en ${UNISABANA_EMAIL_DOMAIN}.`
+    : undefined;
+  const programError = shouldShowError("program", programValid)
+    ? "Selecciona uno de los programas disponibles."
+    : undefined;
+  const semesterError = shouldShowError("semester", semesterValid)
+    ? `Debes estar, como mínimo, en semestre ${MIN_SEMESTER}.`
+    : undefined;
+  const averageError = shouldShowError("cumulativeAverage", averageValid)
+    ? `El promedio acumulado debe ser mayor a ${MIN_CUMULATIVE_AVERAGE.toFixed(
+        1
+      )} y máximo ${MAX_CUMULATIVE_AVERAGE.toFixed(1)}.`
+    : undefined;
+  const consentError =
+    attempted && (!p.consentData || !p.consentFiles)
+      ? "Debes aceptar ambas autorizaciones para continuar."
+      : undefined;
 
   return (
-    <div>
+    <form noValidate onSubmit={handleSubmit}>
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-        <Field label="Nombre completo">
+        <Field id="full-name" label="Nombre completo" error={fullNameError}>
           <input
-            className={inputClass}
+            id="full-name"
+            name="fullName"
+            autoComplete="name"
+            required
+            aria-invalid={Boolean(fullNameError)}
+            aria-describedby={fullNameError ? "full-name-error" : undefined}
+            className={`${inputClass} ${fullNameError ? invalidInputClass : ""}`}
             value={p.fullName}
             onChange={(e) => updateProfile({ fullName: e.target.value })}
+            onBlur={() => touch("fullName")}
             placeholder="Ada Lovelace"
           />
         </Field>
-        <Field label="Correo electrónico">
+        <Field
+          id="institutional-email"
+          label="Correo institucional"
+          hint={`Debe terminar en ${UNISABANA_EMAIL_DOMAIN}.`}
+          error={emailError}
+        >
           <input
+            id="institutional-email"
+            name="email"
             type="email"
-            className={inputClass}
+            inputMode="email"
+            autoComplete="email"
+            autoCapitalize="none"
+            spellCheck={false}
+            required
+            pattern={UNISABANA_EMAIL_PATTERN}
+            aria-invalid={Boolean(emailError)}
+            aria-describedby={`institutional-email-hint${
+              emailError ? " institutional-email-error" : ""
+            }`}
+            className={`${inputClass} ${emailError ? invalidInputClass : ""}`}
             value={p.email}
             onChange={(e) => updateProfile({ email: e.target.value })}
-            placeholder="tucorreo@universidad.edu"
+            onBlur={() => touch("email")}
+            placeholder="nombre.apellido@unisabana.edu.co"
           />
         </Field>
-        <Field label="Programa / carrera">
-          <input
-            className={inputClass}
+        <Field
+          id="academic-program"
+          label="Programa / carrera"
+          error={programError}
+        >
+          <select
+            id="academic-program"
+            name="program"
+            required
+            aria-invalid={Boolean(programError)}
+            aria-describedby={programError ? "academic-program-error" : undefined}
+            className={`${inputClass} ${programError ? invalidInputClass : ""}`}
             value={p.program}
             onChange={(e) => updateProfile({ program: e.target.value })}
-            placeholder="Ingeniería Mecatrónica"
-          />
+            onBlur={() => touch("program")}
+          >
+            <option value="" disabled className="bg-surface text-muted">
+              Selecciona tu programa
+            </option>
+            {PROGRAM_OPTIONS.map((program) => (
+              <option key={program} value={program} className="bg-surface text-ink">
+                {program}
+              </option>
+            ))}
+          </select>
         </Field>
-        <Field label="Semestre">
+        <Field
+          id="semester"
+          label="Semestre"
+          hint={`Desde semestre ${MIN_SEMESTER}.`}
+          error={semesterError}
+        >
           <input
-            className={inputClass}
+            id="semester"
+            name="semester"
+            type="number"
+            inputMode="numeric"
+            min={MIN_SEMESTER}
+            step={1}
+            required
+            aria-invalid={Boolean(semesterError)}
+            aria-describedby={`semester-hint${
+              semesterError ? " semester-error" : ""
+            }`}
+            className={`${inputClass} ${semesterError ? invalidInputClass : ""}`}
             value={p.semester}
             onChange={(e) => updateProfile({ semester: e.target.value })}
-            placeholder="5"
+            onBlur={() => touch("semester")}
+            placeholder="2"
           />
         </Field>
-        <Field label="Código o identificador institucional" optional>
+        <Field
+          id="cumulative-average"
+          label="Promedio acumulado"
+          hint={`Debe ser mayor a ${MIN_CUMULATIVE_AVERAGE.toFixed(
+            1
+          )} y máximo ${MAX_CUMULATIVE_AVERAGE.toFixed(1)}.`}
+          error={averageError}
+        >
           <input
+            id="cumulative-average"
+            name="cumulativeAverage"
+            type="number"
+            inputMode="decimal"
+            min={MIN_ALLOWED_CUMULATIVE_AVERAGE}
+            max={MAX_CUMULATIVE_AVERAGE}
+            step="0.01"
+            required
+            aria-invalid={Boolean(averageError)}
+            aria-describedby={`cumulative-average-hint${
+              averageError ? " cumulative-average-error" : ""
+            }`}
+            className={`${inputClass} ${averageError ? invalidInputClass : ""}`}
+            value={p.cumulativeAverage}
+            onChange={(e) => updateProfile({ cumulativeAverage: e.target.value })}
+            onBlur={() => touch("cumulativeAverage")}
+            placeholder="4.2"
+          />
+        </Field>
+        <Field id="student-code" label="Código o identificador institucional" optional>
+          <input
+            id="student-code"
+            name="studentCode"
             className={inputClass}
             value={p.studentCode}
             onChange={(e) => updateProfile({ studentCode: e.target.value })}
@@ -281,32 +453,49 @@ function StepDatos({ onNext }: { onNext: () => void }) {
       <div className="my-7 h-px bg-line" />
 
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-        <Field label="GitHub" optional>
+        <Field id="github" label="GitHub" optional>
           <input
+            id="github"
+            name="github"
+            type="url"
+            inputMode="url"
+            autoComplete="url"
             className={inputClass}
             value={p.github}
             onChange={(e) => updateProfile({ github: e.target.value })}
             placeholder="github.com/usuario"
           />
         </Field>
-        <Field label="LinkedIn" optional>
+        <Field id="linkedin" label="LinkedIn" optional>
           <input
+            id="linkedin"
+            name="linkedin"
+            type="url"
+            inputMode="url"
             className={inputClass}
             value={p.linkedin}
             onChange={(e) => updateProfile({ linkedin: e.target.value })}
             placeholder="linkedin.com/in/usuario"
           />
         </Field>
-        <Field label="Portafolio" optional>
+        <Field id="portfolio" label="Portafolio" optional>
           <input
+            id="portfolio"
+            name="portfolio"
+            type="url"
+            inputMode="url"
             className={inputClass}
             value={p.portfolio}
             onChange={(e) => updateProfile({ portfolio: e.target.value })}
             placeholder="miportafolio.com"
           />
         </Field>
-        <Field label="Página personal / Instagram" optional>
+        <Field id="personal-page" label="Página personal / Instagram" optional>
           <input
+            id="personal-page"
+            name="website"
+            type="url"
+            inputMode="url"
             className={inputClass}
             value={p.website}
             onChange={(e) => updateProfile({ website: e.target.value })}
@@ -317,10 +506,18 @@ function StepDatos({ onNext }: { onNext: () => void }) {
 
       <div className="my-7 h-px bg-line" />
 
-      <div className="space-y-3">
+      <fieldset
+        aria-describedby={consentError ? "consent-error" : undefined}
+        className="space-y-3"
+      >
+        <legend className="sr-only">Autorizaciones requeridas</legend>
         <label className="flex cursor-pointer items-start gap-3 text-xs text-muted">
           <input
+            id="consent-data"
+            name="consentData"
             type="checkbox"
+            required
+            aria-invalid={Boolean(consentError && !p.consentData)}
             checked={p.consentData}
             onChange={(e) => updateProfile({ consentData: e.target.checked })}
             className="mt-0.5 h-4 w-4 accent-tech"
@@ -330,7 +527,11 @@ function StepDatos({ onNext }: { onNext: () => void }) {
         </label>
         <label className="flex cursor-pointer items-start gap-3 text-xs text-muted">
           <input
+            id="consent-files"
+            name="consentFiles"
             type="checkbox"
+            required
+            aria-invalid={Boolean(consentError && !p.consentFiles)}
             checked={p.consentFiles}
             onChange={(e) => updateProfile({ consentFiles: e.target.checked })}
             className="mt-0.5 h-4 w-4 accent-tech"
@@ -338,14 +539,23 @@ function StepDatos({ onNext }: { onNext: () => void }) {
           Acepto que los archivos que envíe sean utilizados con fines del
           proceso de selección.
         </label>
-      </div>
+        {consentError && (
+          <p id="consent-error" role="alert" className="text-[11px] font-medium text-danger">
+            {consentError}
+          </p>
+        )}
+      </fieldset>
 
       <div className="mt-8 flex justify-end">
-        <button onClick={onNext} disabled={!canContinue} className={canContinue ? primaryBtn : disabledBtn}>
+        <button
+          type="submit"
+          aria-disabled={!canContinue}
+          className={canContinue ? primaryBtn : disabledBtn}
+        >
           Continuar
         </button>
       </div>
-    </div>
+    </form>
   );
 }
 

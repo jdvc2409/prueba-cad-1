@@ -79,9 +79,24 @@ const MAP_POSITIONS = [
 ] as const;
 
 export default function LandingPage() {
-  const { state, hydrated, startSession } = useAppState();
+  const { state, hydrated, sessionActive, startSession } = useAppState();
   const journey = getJourneyDestination(state);
   const reduceMotion = Boolean(useReducedMotion());
+  const requiresLogin = journey.isReturning && !sessionActive;
+  const primaryAction = requiresLogin
+    ? {
+        href: "/login",
+        label: "Iniciar sesión para continuar",
+        onStart: undefined,
+      }
+    : {
+        href: journey.href,
+        label: journey.label,
+        onStart: startSession,
+      };
+  const journeyDetail = requiresLogin
+    ? "Encontramos un recorrido guardado en este dispositivo. Inicia sesión para retomarlo."
+    : journey.detail;
 
   return (
     <div className="relative overflow-hidden bg-night">
@@ -140,10 +155,10 @@ export default function LandingPage() {
             >
               <div className="flex flex-col gap-3 sm:flex-row">
                 <JourneyLink
-                  href={journey.href}
-                  label={journey.label}
+                  href={primaryAction.href}
+                  label={primaryAction.label}
                   ready={hydrated}
-                  onStart={startSession}
+                  onStart={primaryAction.onStart}
                 />
                 <a
                   href="#semillero"
@@ -164,7 +179,7 @@ export default function LandingPage() {
                 {hydrated && journey.isReturning && (
                   <span className="h-1.5 w-1.5 rounded-full bg-ok" aria-hidden="true" />
                 )}
-                {hydrated ? journey.detail : "Recuperando tu recorrido…"}
+                {hydrated ? journeyDetail : "Recuperando tu recorrido…"}
               </p>
             </motion.div>
 
@@ -371,14 +386,14 @@ export default function LandingPage() {
                 Tu perfil no es una nota. Es el camino que decides construir.
               </h2>
               <p className="mx-auto mt-4 max-w-lg text-sm leading-6 text-muted">
-                {hydrated ? journey.detail : "Recuperando tu recorrido…"}
+                {hydrated ? journeyDetail : "Recuperando tu recorrido…"}
               </p>
               <div className="mt-8 flex justify-center">
                 <JourneyLink
-                  href={journey.href}
-                  label={journey.label}
+                  href={primaryAction.href}
+                  label={primaryAction.label}
                   ready={hydrated}
-                  onStart={startSession}
+                  onStart={primaryAction.onStart}
                 />
               </div>
             </div>
@@ -398,7 +413,7 @@ function JourneyLink({
   href: string;
   label: string;
   ready: boolean;
-  onStart: () => void;
+  onStart?: () => void;
 }) {
   if (!ready) {
     return (
@@ -417,7 +432,7 @@ function JourneyLink({
     <Link
       href={href}
       onClick={onStart}
-      className="group inline-flex min-h-12 min-w-56 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-action to-[#0f6fa8] px-6 text-sm font-semibold text-white shadow-[0_12px_35px_rgba(18,103,177,0.28)] transition-[transform,box-shadow] hover:-translate-y-0.5 hover:shadow-[0_16px_42px_rgba(18,103,177,0.38)] active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-night"
+      className="group inline-flex min-h-12 min-w-56 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-action to-tech px-6 text-sm font-semibold text-white shadow-[0_12px_35px_rgba(2,56,125,0.34)] transition-[transform,box-shadow] hover:-translate-y-0.5 hover:shadow-[0_16px_42px_rgba(2,56,125,0.46)] active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-night"
     >
       {label}
       <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className="h-4 w-4 transition-transform group-hover:translate-x-0.5">

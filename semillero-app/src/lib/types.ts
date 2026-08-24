@@ -42,6 +42,7 @@ export interface CandidateProfile {
   email: string;
   program: string;
   semester: string;
+  cumulativeAverage: string;
   studentCode: string;
   github: string;
   linkedin: string;

@@ -11,8 +11,9 @@ Integración Robótica), completando retos a su propio ritmo.
 ## Estado actual
 
 Implementado el recorrido del aspirante: landing, presentación del semillero,
-registro, presentación libre multimodal y un árbol de habilidades interactivo
-con 53 nodos técnicos más el reto transversal de Integración Robótica.
+registro con validaciones académicas, acceso local para reanudar, presentación
+libre multimodal y un árbol de habilidades interactivo con 53 nodos técnicos
+más el reto transversal de Integración Robótica.
 
 Los retos en esta etapa son **placeholders de debug**: al hacer clic en un
 nodo se muestra su nombre, tipo y una mini descripción de en qué consiste, con
@@ -20,9 +21,10 @@ un botón "Completar reto" que lo marca como resuelto y desbloquea los
 siguientes nodos con animación. El contenido real de cada reto (tipos A–J del
 motor de retos) se implementará en una siguiente etapa.
 
-No incluye todavía: autenticación, backend/base de datos, dashboard del
-evaluador ni panel administrativo — el progreso se guarda automáticamente en
-el navegador (`localStorage`) mientras se define esa capa.
+No incluye todavía: autenticación real, backend/base de datos, dashboard del
+evaluador ni panel administrativo. El acceso actual compara el correo contra el
+recorrido guardado en ese navegador (`localStorage`); la sesión sólo se mantiene
+en la pestaña mediante `sessionStorage` mientras se define la capa de backend.
 
 ## Desarrollo local
 

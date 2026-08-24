@@ -16,6 +16,7 @@ import type {
   NodeStatus,
 } from "@/lib/types";
 import { canFinishJourney } from "@/lib/unlock";
+import { isValidCandidateProfile } from "@/lib/admissions";
 
 const STORAGE_KEY = "semillero-app-state-v1";
 const SESSION_KEY = "semillero-session-active";
@@ -25,6 +26,7 @@ const emptyProfile: CandidateProfile = {
   email: "",
   program: "",
   semester: "",
+  cumulativeAverage: "",
   studentCode: "",
   github: "",
   linkedin: "",
@@ -75,14 +77,7 @@ function loadState(): AppState {
     if (!raw) return defaultState;
     const parsed = JSON.parse(raw) as Partial<AppState>;
     const profile = { ...emptyProfile, ...(parsed.profile ?? {}) };
-    const profileLooksComplete = Boolean(
-      profile.fullName.trim() &&
-        profile.email.trim() &&
-        profile.program.trim() &&
-        profile.semester.trim() &&
-        profile.consentData &&
-        profile.consentFiles
-    );
+    const profileLooksComplete = isValidCandidateProfile(profile);
     return {
       profile,
       progress: parsed.progress ?? {},
@@ -237,7 +232,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
 
   const completeNode = useCallback((nodeId: string) => {
     commitState((prev) => {
-      if (prev.submitted) return prev;
+      if (prev.submitted || !isValidCandidateProfile(prev.profile)) return prev;
       return {
         ...prev,
         progress: { ...prev.progress, [nodeId]: "completed" as NodeStatus },
@@ -248,7 +243,13 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
 
   const submitJourney = useCallback(() => {
     commitState((prev) => {
-      if (prev.submitted || !canFinishJourney(prev.progress)) return prev;
+      if (
+        prev.submitted ||
+        !isValidCandidateProfile(prev.profile) ||
+        !canFinishJourney(prev.progress)
+      ) {
+        return prev;
+      }
       return { ...prev, submitted: true, submittedAt: Date.now() };
     });
   }, [commitState]);

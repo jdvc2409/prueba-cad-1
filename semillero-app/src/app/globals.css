@@ -1,18 +1,18 @@
 @import "tailwindcss";
 
 @theme inline {
-  --color-night: #061827;
-  --color-surface: #0b2438;
-  --color-surface-raised: #0e2c44;
-  --color-action: #1267b1;
-  --color-tech: #168dd0;
-  --color-cyan: #35c4e8;
-  --color-ice: #ddf4ff;
-  --color-ink: #f5fafd;
-  --color-muted: #9cb6c8;
-  --color-line: rgba(117, 186, 224, 0.18);
-  --color-danger: #ef6a6a;
-  --color-ok: #58c7a2;
+  --color-night: #03152f;
+  --color-surface: #082653;
+  --color-surface-raised: #0d3468;
+  --color-action: #02387d;
+  --color-tech: #17649e;
+  --color-cyan: #84b6d7;
+  --color-ice: #d9e1ef;
+  --color-ink: #f7f9fc;
+  --color-muted: #a7b5c8;
+  --color-line: rgba(147, 171, 200, 0.22);
+  --color-danger: #ff8585;
+  --color-ok: #67d1ae;
   --font-heading: var(--font-space-grotesk), "Space Grotesk", sans-serif;
   --font-body: var(--font-inter), "Inter", sans-serif;
 }
@@ -27,7 +27,7 @@ html {
 
 body {
   background:
-    radial-gradient(circle at 80% -10%, rgba(22, 141, 208, 0.1), transparent 32rem),
+    radial-gradient(circle at 80% -10%, rgba(2, 56, 125, 0.2), transparent 32rem),
     var(--color-night);
   color: var(--color-ink);
   font-family: var(--font-body);
@@ -60,38 +60,38 @@ h1, h2, h3, h4, .font-heading {
 
 .grid-pattern {
   background-image:
-    linear-gradient(rgba(117, 186, 224, 0.07) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(117, 186, 224, 0.07) 1px, transparent 1px);
+    linear-gradient(rgba(147, 171, 200, 0.075) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(147, 171, 200, 0.075) 1px, transparent 1px);
   background-size: 42px 42px;
 }
 
 .hero-gradient {
   background:
-    radial-gradient(circle at 70% 20%, rgba(22, 141, 208, 0.22), transparent 40%),
-    radial-gradient(circle at 15% 80%, rgba(53, 196, 232, 0.12), transparent 45%),
-    linear-gradient(135deg, #061827 0%, #081f33 55%, #0a2942 100%);
+    radial-gradient(circle at 70% 20%, rgba(2, 58, 135, 0.3), transparent 40%),
+    radial-gradient(circle at 15% 80%, rgba(132, 182, 215, 0.11), transparent 45%),
+    linear-gradient(135deg, #03152f 0%, #061f45 55%, #082a56 100%);
 }
 
 @keyframes pulse-glow {
   0%, 100% {
-    box-shadow: 0 0 0 0 rgba(53, 196, 232, 0.45);
+    box-shadow: 0 0 0 0 rgba(132, 182, 215, 0.4);
   }
   50% {
-    box-shadow: 0 0 0 10px rgba(53, 196, 232, 0);
+    box-shadow: 0 0 0 10px rgba(132, 182, 215, 0);
   }
 }
 .pulse-glow {
   animation: pulse-glow 2.4s ease-in-out infinite;
 }
 
-/* One-shot "just unlocked" announcement — never infinite, per motion guidance:
+/* One-shot "just unlocked" announcement -- never infinite, per motion guidance:
    continuous motion is reserved for the single "ready to finish" CTA above. */
 @keyframes ring-pulse {
   0% {
-    box-shadow: 0 0 0 0 rgba(53, 196, 232, 0.5);
+    box-shadow: 0 0 0 0 rgba(132, 182, 215, 0.46);
   }
   100% {
-    box-shadow: 0 0 0 16px rgba(53, 196, 232, 0);
+    box-shadow: 0 0 0 16px rgba(132, 182, 215, 0);
   }
 }
 .ring-pulse {
@@ -126,9 +126,9 @@ h1, h2, h3, h4, .font-heading {
 
 .skill-tree-canvas {
   background:
-    radial-gradient(circle at 50% 50%, rgba(18, 103, 177, 0.14), transparent 26rem),
-    radial-gradient(circle at 50% 85%, rgba(53, 196, 232, 0.08), transparent 32rem),
-    linear-gradient(180deg, #061827 0%, #04131f 100%);
+    radial-gradient(circle at 50% 50%, rgba(2, 56, 125, 0.2), transparent 26rem),
+    radial-gradient(circle at 50% 85%, rgba(132, 182, 215, 0.075), transparent 32rem),
+    linear-gradient(180deg, #03152f 0%, #020e22 100%);
 }
 
 .skill-tree-canvas::after {
@@ -138,8 +138,8 @@ h1, h2, h3, h4, .font-heading {
   pointer-events: none;
   content: "";
   background-image:
-    linear-gradient(rgba(117, 186, 224, 0.022) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(117, 186, 224, 0.022) 1px, transparent 1px);
+    linear-gradient(rgba(147, 171, 200, 0.026) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(147, 171, 200, 0.026) 1px, transparent 1px);
   background-size: 90px 90px;
   mask-image: radial-gradient(circle at center, black 0%, transparent 72%);
 }

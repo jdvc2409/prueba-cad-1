@@ -1,4 +1,5 @@
 import type { AppState, CandidateProfile } from "@/lib/types";
+import { isValidCandidateProfile } from "@/lib/admissions";
 
 export type JourneyStage =
   | "new"
@@ -16,14 +17,7 @@ export interface JourneyDestination {
 }
 
 export function isRequiredProfileComplete(profile: CandidateProfile): boolean {
-  return Boolean(
-    profile.fullName.trim() &&
-      profile.email.trim() &&
-      profile.program.trim() &&
-      profile.semester.trim() &&
-      profile.consentData &&
-      profile.consentFiles
-  );
+  return isValidCandidateProfile(profile);
 }
 
 export function hasRegistrationStarted(profile: CandidateProfile): boolean {
@@ -32,6 +26,7 @@ export function hasRegistrationStarted(profile: CandidateProfile): boolean {
       profile.email.trim() ||
       profile.program.trim() ||
       profile.semester.trim() ||
+      profile.cumulativeAverage.trim() ||
       profile.studentCode.trim() ||
       profile.github.trim() ||
       profile.linkedin.trim() ||
@@ -45,9 +40,10 @@ export function hasRegistrationStarted(profile: CandidateProfile): boolean {
 
 export function canAccessSkillTree(state: AppState): boolean {
   return Boolean(
-    state.onboardingCompleted ||
-      state.submitted ||
-      Object.keys(state.progress).length > 0
+    isValidCandidateProfile(state.profile) &&
+      (state.onboardingCompleted ||
+        state.submitted ||
+        Object.keys(state.progress).length > 0)
   );
 }
 
@@ -57,6 +53,23 @@ export function getRegistrationStep(state: AppState): 1 | 2 {
 }
 
 export function getJourneyDestination(state: AppState): JourneyDestination {
+  const hasLegacyJourney = Boolean(
+    state.onboardingCompleted ||
+      state.submitted ||
+      Object.keys(state.progress).length > 0
+  );
+
+  if (!isRequiredProfileComplete(state.profile) && hasLegacyJourney) {
+    return {
+      stage: "registration",
+      href: "/registro",
+      label: "Actualizar mis datos",
+      detail:
+        "Conservamos todo tu avance. Actualiza tus datos académicos para continuar tu recorrido.",
+      isReturning: true,
+    };
+  }
+
   if (state.submitted) {
     return {
       stage: "submitted",
