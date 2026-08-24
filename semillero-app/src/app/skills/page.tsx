@@ -180,6 +180,10 @@ function TreeCanvas() {
           id: node.id,
           type: "skill",
           position: positions[node.id],
+          // React Flow disables pointer events when a node is neither draggable
+          // nor selectable. Skill nodes remain fixed, but their inner button
+          // must still receive hover, mouse and touch interactions.
+          style: { pointerEvents: "all" },
           draggable: false,
           selectable: false,
           zIndex: node.id === IR_NODE.id ? 6 : 3,
