@@ -62,6 +62,10 @@ export function LocalEvidenceUploader({
           const blob = await getEvidenceBlob(file.id);
           if (!blob) return [file.id, ""] as const;
           const url = URL.createObjectURL(blob);
+          if (cancelled) {
+            URL.revokeObjectURL(url);
+            return [file.id, ""] as const;
+          }
           objectUrls.push(url);
           return [file.id, url] as const;
         } catch {
@@ -136,9 +140,9 @@ export function LocalEvidenceUploader({
   const atLimit = multiple ? value.length >= maxFiles : false;
 
   return (
-    <section className="rounded-2xl border border-line bg-night/30 p-4 sm:p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
+    <section className="min-w-0 max-w-full overflow-hidden rounded-2xl border border-line bg-night/30 p-4 sm:p-5">
+      <div className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+        <div className="min-w-0">
           <h4 className="text-sm font-semibold text-ink">
             {label}
             {required && <span className="ml-1 text-cyan" aria-hidden="true">*</span>}
@@ -149,7 +153,7 @@ export function LocalEvidenceUploader({
         </div>
         <label
           htmlFor={inputId}
-          className={`inline-flex min-h-10 items-center justify-center rounded-xl border px-4 text-xs font-semibold transition-colors focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-cyan ${
+          className={`inline-flex min-h-10 w-full items-center justify-center whitespace-nowrap rounded-xl border px-4 text-xs font-semibold transition-colors focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-cyan sm:w-auto ${
             disabled || busy || atLimit
               ? "cursor-not-allowed border-line bg-surface/40 text-muted/60"
               : "cursor-pointer border-cyan/35 bg-cyan/10 text-cyan hover:bg-cyan/15"
@@ -186,36 +190,50 @@ export function LocalEvidenceUploader({
       </div>
 
       {value.length > 0 && (
-        <ul className="mt-3 space-y-2">
+        <ul className="mt-3 min-w-0 space-y-2">
           {value.map((file) => {
             const url = urls[file.id];
             return (
-              <li key={file.id} className="flex items-center gap-3 rounded-xl border border-line bg-surface/45 p-3">
-                <FilePreview file={file} url={url} />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs font-semibold text-ice">{file.name}</p>
-                  <p className="mt-0.5 text-[11px] text-muted">{formatEvidenceSize(file.size)}</p>
+              <li
+                key={file.id}
+                className="grid min-w-0 max-w-full gap-3 overflow-hidden rounded-xl border border-line bg-surface/45 p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+              >
+                <div className="flex min-w-0 items-center gap-3 overflow-hidden">
+                  <FilePreview file={file} url={url} />
+                  <div className="min-w-0 flex-1 overflow-hidden">
+                    <p className="truncate text-xs font-semibold text-ice" title={file.name}>
+                      {file.name}
+                    </p>
+                    <p className="mt-0.5 truncate text-[11px] text-muted">
+                      {getFileTypeLabel(file)} <span aria-hidden="true">·</span>{" "}
+                      {formatEvidenceSize(file.size)}
+                    </p>
+                  </div>
                 </div>
-                {url && (
-                  <a
-                    href={url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="rounded-lg px-2.5 py-2 text-xs font-semibold text-cyan hover:bg-cyan/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan"
-                  >
-                    Ver
-                  </a>
-                )}
-                {!disabled && (
-                  <button
-                    type="button"
-                    onClick={() => void remove(file)}
-                    disabled={busy}
-                    className="rounded-lg px-2.5 py-2 text-xs font-semibold text-danger hover:bg-danger/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger disabled:opacity-50"
-                  >
-                    Quitar
-                  </button>
-                )}
+                <div className="flex shrink-0 flex-wrap items-center justify-end gap-1 border-t border-line/70 pt-2 sm:border-t-0 sm:pt-0">
+                  {url && (
+                    <a
+                      href={url}
+                      target="_blank"
+                      rel="noreferrer"
+                      aria-label={`Abrir ${file.name} en una pestaña nueva`}
+                      className="rounded-lg px-2.5 py-2 text-xs font-semibold text-cyan hover:bg-cyan/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan"
+                    >
+                      Abrir
+                    </a>
+                  )}
+                  {!disabled && (
+                    <button
+                      type="button"
+                      onClick={() => void remove(file)}
+                      disabled={busy}
+                      aria-label={`Quitar ${file.name}`}
+                      className="rounded-lg px-2.5 py-2 text-xs font-semibold text-danger hover:bg-danger/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger disabled:opacity-50"
+                    >
+                      Quitar
+                    </button>
+                  )}
+                </div>
               </li>
             );
           })}
@@ -232,16 +250,53 @@ export function LocalEvidenceUploader({
 function FilePreview({ file, url }: { file: LocalEvidenceFile; url?: string }) {
   if (url && file.mimeType.startsWith("image/")) {
     // Blob URLs are created at runtime and cannot use Next's static image pipeline.
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={url} alt="" className="h-12 w-12 shrink-0 rounded-lg object-cover" />;
+    return (
+      <span
+        aria-hidden="true"
+        className="relative block h-12 w-12 min-w-12 shrink-0 overflow-hidden rounded-lg border border-line bg-night"
+        style={{
+          width: 48,
+          height: 48,
+          maxWidth: 48,
+          maxHeight: 48,
+          contain: "strict",
+          isolation: "isolate",
+        }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={url}
+          alt=""
+          width={48}
+          height={48}
+          loading="lazy"
+          decoding="async"
+          className="absolute inset-0 block h-full w-full object-cover"
+          style={{ width: "100%", height: "100%", maxWidth: "100%", maxHeight: "100%" }}
+        />
+      </span>
+    );
   }
 
   return (
-    <span aria-hidden="true" className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-cyan/10 text-cyan">
+    <span
+      aria-hidden="true"
+      className="flex h-12 w-12 min-w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-line bg-cyan/10 text-cyan"
+      style={{ width: 48, height: 48, maxWidth: 48, maxHeight: 48 }}
+    >
       <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.7">
         <path d="M6 3h8l4 4v14H6V3Z" strokeLinejoin="round" />
         <path d="M14 3v5h4M9 13h6M9 17h4" strokeLinecap="round" />
       </svg>
     </span>
   );
+}
+
+function getFileTypeLabel(file: LocalEvidenceFile) {
+  if (file.mimeType.startsWith("image/")) return "Imagen";
+  if (file.mimeType.startsWith("video/")) return "Video";
+  if (file.mimeType === "application/pdf") return "PDF";
+
+  const extension = file.name.split(".").pop()?.trim().toUpperCase();
+  return extension && extension !== file.name.toUpperCase() ? extension : "Archivo";
 }
