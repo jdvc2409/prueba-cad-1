@@ -25,12 +25,15 @@ export type E1ABlockId =
   | "led"
   | "motor-driver"
   | "dc-motor";
-export type E1AFaultId = "missing-resistor" | "reverse-polarity" | "short-circuit";
+export type E1AFaultCaseId = "direct-wiring" | "l293d-diagnosis" | "l293d-solved";
+export type E1AFaultQuestionKind = "single" | "multiple" | "open";
 
 export interface E1AAsset {
   readonly sourceFilename: string;
   readonly src: string;
   readonly alt: string;
+  readonly width: number;
+  readonly height: number;
 }
 
 export interface E1AHotspot {
@@ -57,31 +60,31 @@ export interface E1ABlockDefinition {
   readonly hotspot: E1AHotspot;
 }
 
-export interface E1AFaultTarget {
-  readonly id: string;
-  readonly accessibleLabel: string;
-  readonly hotspot: E1AHotspot;
-}
-
-export interface E1AChoiceOption {
+export interface E1AFaultOption {
   readonly id: string;
   readonly label: string;
 }
 
-export interface E1AFaultDefinition {
-  readonly id: E1AFaultId;
-  readonly title: string;
+export interface E1AFaultQuestion {
+  readonly id: string;
+  readonly kind: E1AFaultQuestionKind;
   readonly prompt: string;
-  readonly asset: E1AAsset;
-  readonly targets: readonly E1AFaultTarget[];
-  readonly correctTargetId: string;
-  readonly causePrompt: string;
-  readonly causeOptions: readonly E1AChoiceOption[];
-  readonly correctCauseOptionId: string;
-  readonly feedback: {
+  /** Only for "single" / "multiple". */
+  readonly options?: readonly E1AFaultOption[];
+  /** Only for "single" / "multiple". Exact-set match decides correctness. */
+  readonly correctOptionIds?: readonly string[];
+  readonly feedback?: {
     readonly correct: string;
     readonly incorrect: string;
   };
+}
+
+export interface E1AFaultCase {
+  readonly id: E1AFaultCaseId;
+  readonly title: string;
+  readonly prompt: string;
+  readonly asset: E1AAsset;
+  readonly questions: readonly E1AFaultQuestion[];
 }
 
 export interface E1AStepDefinition {
@@ -104,15 +107,18 @@ export interface E1ABlocksSubmission {
   readonly assignments: Readonly<Partial<Record<E1ABlockId, E1AFunctionId>>>;
 }
 
-export interface E1AFaultAnswer {
-  readonly targetId: string;
-  readonly causeOptionId: string;
-  readonly incorrectClicks: number;
+export interface E1AFaultQuestionAnswer {
+  /** For "single" / "multiple" questions: the selected option ids. */
+  readonly selected?: readonly string[];
+  /** For "open" questions: the free-text answer. */
+  readonly text?: string;
 }
+
+export type E1AFaultCaseAnswers = Readonly<Partial<Record<string, E1AFaultQuestionAnswer>>>;
 
 export interface E1AFaultsSubmission {
   readonly stepId: "faults";
-  readonly cases: Readonly<Partial<Record<E1AFaultId, E1AFaultAnswer>>>;
+  readonly answers: Readonly<Partial<Record<E1AFaultCaseId, E1AFaultCaseAnswers>>>;
 }
 
 export type E1AStepSubmission =
@@ -248,6 +254,8 @@ const INTERPRETATION_ASSET: E1AAsset = {
   sourceFilename: "electronics_E1A_S1_robot_schematic.png",
   src: "/challenges/electronics/e1a/electronics_E1A_S1_robot_schematic.png",
   alt: "Plano eléctrico de un robot: fuente de 7 a 10 voltios y regulador LM2596 alimentan un Arduino Nano, que controla dos matrices LED en cascada, un módulo Bluetooth HC-05 y un driver L298N mini conectado a dos motores DC.",
+  width: 915,
+  height: 835,
 };
 
 const BLOCKS_ASSET: E1AAsset = {
@@ -255,123 +263,107 @@ const BLOCKS_ASSET: E1AAsset = {
   alt: "Plano eléctrico rotulado del robot usado para asociar cada componente con su función.",
 };
 
-export const E1A_FAULTS: readonly E1AFaultDefinition[] = [
+const MISSING_ELEMENTS_OPTIONS: readonly E1AFaultOption[] = [
+  { id: "h-bridge-driver", label: "Un driver / puente H para los motores, como el L293D" },
+  { id: "separate-motor-supply", label: "Una fuente de alimentación independiente para los motores (no compartir el pin 5V del Arduino)" },
+  { id: "series-resistor", label: "Una resistencia limitadora en serie con cada motor" },
+  { id: "decoupling-capacitor", label: "Un capacitor de desacople junto al Arduino" },
+  { id: "current-sensor", label: "Un sensor de corriente para monitorear los motores" },
+  { id: "fuse", label: "Un fusible entre la batería y el Arduino" },
+] as const;
+
+export const E1A_FAULT_CASES: readonly E1AFaultCase[] = [
   {
-    id: "missing-resistor",
-    title: "Caso 1 · LED con brillo excesivo",
-    prompt: "Al energizar el circuito, el LED brilla demasiado y termina dañándose. Analiza el recorrido de corriente.",
+    id: "direct-wiring",
+    title: "Caso 1 · Motores conectados directo al Arduino",
+    prompt:
+      "Este circuito conecta los dos motores directamente a pines digitales del Arduino, y alimenta la placa con una batería de 9 V en el pin 5V.",
     asset: {
-      sourceFilename: "electronics_E1A_S3_fault_case_led.svg",
-      src: "/challenges/electronics/e1a/electronics_E1A_S3_fault_case_led.svg",
-      alt: "Circuito de alimentación, rama de LED y retorno a tierra para diagnóstico.",
+      sourceFilename: "E1A_deteccion_fallos_caso-1.png",
+      src: "/challenges/electronics/e1a/electronics_E1A_S3_case1_direct_wiring.png",
+      alt: "Arduino UNO con dos motores DC conectados directamente a pines digitales y una batería de 9V conectada al pin 5V.",
+      width: 1146,
+      height: 789,
     },
-    targets: [
+    questions: [
       {
-        id: "left-supply",
-        accessibleLabel: "Zona A · Fuente de 3,3 V",
-        hotspot: { left: 25, top: 39, width: 11, height: 15 },
+        id: "why-wrong",
+        kind: "open",
+        prompt: "¿Por qué esta conexión es un problema? Explica el riesgo.",
       },
       {
-        id: "led-branch",
-        accessibleLabel: "Zona B · Rama GPIO–LED",
-        hotspot: { left: 36.5, top: 43, width: 11, height: 16 },
+        id: "missing-elements",
+        kind: "multiple",
+        prompt: "¿Qué elementos le faltan a este circuito?",
+        options: MISSING_ELEMENTS_OPTIONS,
+        correctOptionIds: ["h-bridge-driver", "separate-motor-supply"],
+        feedback: {
+          correct: "Un driver de motores y una fuente separada para ellos resuelven el problema.",
+          incorrect: "Piensa en qué protege al Arduino y en de dónde debería salir la corriente de los motores.",
+        },
       },
       {
-        id: "right-return",
-        accessibleLabel: "Zona C · Retorno a GND",
-        hotspot: { left: 49, top: 39, width: 8, height: 15 },
+        id: "why-selected",
+        kind: "open",
+        prompt: "Explica por qué elegiste esos elementos.",
       },
     ],
-    correctTargetId: "led-branch",
-    causePrompt: "¿Cuál es la causa técnica de la falla?",
-    causeOptions: [
-      { id: "missing-series-resistor", label: "Falta una resistencia limitadora en serie con el LED." },
-      { id: "open-return", label: "El retorno está abierto y no existe un camino de corriente." },
-      { id: "reversed-battery", label: "La batería está conectada con la polaridad invertida." },
-    ],
-    correctCauseOptionId: "missing-series-resistor",
-    feedback: {
-      correct: "La rama del LED necesita limitar la corriente con una resistencia o un driver apropiado.",
-      incorrect: "Revisa qué elemento controla la corriente que atraviesa el LED.",
-    },
   },
   {
-    id: "reverse-polarity",
-    title: "Caso 2 · Módulo que no enciende",
-    prompt: "El módulo no inicia y comienza a calentarse al conectarlo. Compara los terminales con las líneas de alimentación.",
+    id: "l293d-diagnosis",
+    title: "Caso 2 · Circuito con L293D",
+    prompt:
+      "Este circuito ya usa un integrado L293D para controlar los motores desde una protoboard, pero tiene un error. Investiga el datasheet del L293D antes de responder.",
     asset: {
-      sourceFilename: "electronics_E1A_S4_fault_case_reverse_polarity.svg",
-      src: "/challenges/electronics/e1a/electronics_E1A_S4_fault_case_reverse_polarity.svg",
-      alt: "Fuente conectada a un módulo con terminales positivo y negativo para diagnóstico.",
+      sourceFilename: "E1A_deteccion_fallos_caso-2.png",
+      src: "/challenges/electronics/e1a/electronics_E1A_S3_case2_l293d_diagnosis.png",
+      alt: "Arduino UNO conectado a un L293D en protoboard, que controla dos motores DC alimentados por una batería de 9V.",
+      width: 1413,
+      height: 751,
     },
-    targets: [
+    questions: [
       {
-        id: "left-wire",
-        accessibleLabel: "Zona A · Salida de la fuente",
-        hotspot: { left: 25, top: 39, width: 9, height: 15 },
+        id: "l293d-explanation",
+        kind: "open",
+        prompt: "Consulta el datasheet del L293D y explica, con tus palabras, cómo funciona este integrado.",
       },
       {
-        id: "module-terminals",
-        accessibleLabel: "Zona B · Terminales VCC y GND del módulo",
-        hotspot: { left: 33.5, top: 42, width: 14.5, height: 21 },
+        id: "wire-roles",
+        kind: "open",
+        prompt: "Describe qué papel cumple cada cable de este circuito.",
       },
       {
-        id: "right-wire",
-        accessibleLabel: "Zona C · Señal de salida",
-        hotspot: { left: 48, top: 39, width: 9, height: 15 },
+        id: "what-is-the-error",
+        kind: "open",
+        prompt: "¿Cuál es el error en este circuito? Explica cómo lo detectaste.",
       },
     ],
-    correctTargetId: "module-terminals",
-    causePrompt: "¿Qué explica mejor el riesgo mostrado?",
-    causeOptions: [
-      { id: "reverse-module-supply", label: "VCC y GND llegan invertidos a un módulo sensible a polaridad." },
-      { id: "low-current", label: "La fuente entrega menos corriente máxima que la indicada por el módulo." },
-      { id: "missing-data-wire", label: "Falta una conexión de datos entre el módulo y el MCU." },
-    ],
-    correctCauseOptionId: "reverse-module-supply",
-    feedback: {
-      correct: "En un módulo polarizado, invertir VCC y GND puede impedir el funcionamiento o causar daño.",
-      incorrect: "Compara los signos de los terminales con los conductores que llegan al módulo.",
-    },
   },
   {
-    id: "short-circuit",
-    title: "Caso 3 · Fuente en protección",
-    prompt: "La fuente limita la corriente apenas se conecta el circuito. Revisa si existe un recorrido de baja impedancia.",
+    id: "l293d-solved",
+    title: "Caso 3 · L293D con los pines de control a GND",
+    prompt:
+      "Este es el mismo circuito del caso 2, ahora resuelto: los pines de control del L293D quedaron conectados a GND.",
     asset: {
-      sourceFilename: "electronics_E1A_S5_fault_case_short.svg",
-      src: "/challenges/electronics/e1a/electronics_E1A_S5_fault_case_short.svg",
-      alt: "Líneas de alimentación VCC y GND con tres zonas para diagnóstico.",
+      sourceFilename: "E1A_deteccion_fallos_caso-3.png",
+      src: "/challenges/electronics/e1a/electronics_E1A_S3_case3_l293d_solved.png",
+      alt: "Mismo circuito con L293D en protoboard, con los pines de control conectados a GND.",
+      width: 1314,
+      height: 673,
     },
-    targets: [
+    questions: [
       {
-        id: "short-loop",
-        accessibleLabel: "Zona A · Camino entre VCC y GND",
-        hotspot: { left: 25, top: 40, width: 23, height: 14 },
+        id: "pins-purpose",
+        kind: "open",
+        prompt: "¿Para qué sirven los pines que ahora están conectados a GND y qué función cumplen en el L293D?",
       },
       {
-        id: "empty-center",
-        accessibleLabel: "Zona B · Salida hacia la carga",
-        hotspot: { left: 49, top: 41, width: 11, height: 16 },
-      },
-      {
-        id: "case-border",
-        accessibleLabel: "Zona C · Entrada de la fuente",
-        hotspot: { left: 71, top: 36, width: 9, height: 21 },
+        id: "pins-connection",
+        kind: "open",
+        prompt:
+          "¿A dónde van conectados esos pines y cómo se relaciona esa conexión con el funcionamiento del circuito?",
       },
     ],
-    correctTargetId: "short-loop",
-    causePrompt: "¿Por qué este camino es peligroso?",
-    causeOptions: [
-      { id: "direct-vcc-ground", label: "Une VCC y GND con una impedancia muy baja, por lo que la corriente puede elevarse mucho." },
-      { id: "series-load", label: "Agrega una carga en serie y reduce demasiado la corriente disponible." },
-      { id: "floating-input", label: "Deja una entrada lógica flotante y susceptible al ruido." },
-    ],
-    correctCauseOptionId: "direct-vcc-ground",
-    feedback: {
-      correct: "Una unión directa VCC–GND crea un camino de muy baja impedancia y puede dañar la fuente o las pistas.",
-      incorrect: "Sigue el conductor y verifica si existe alguna carga que limite la corriente entre VCC y GND.",
-    },
   },
 ] as const;
 
@@ -403,13 +395,13 @@ export const E1A_STEPS: readonly E1AStepDefinition[] = [
   {
     id: "faults",
     order: 3,
-    title: "Detecta tres fallas",
+    title: "Diagnostica el driver de motores",
     eyebrow: "Banco de diagnóstico",
     statement:
-      "En cada caso señala la zona problemática y elige su causa técnica. Los tres casos deben quedar resueltos.",
-    asset: E1A_FAULTS[0].asset,
+      "Tres circuitos con motores DC: uno sin driver, uno con un L293D que tiene un error, y ese mismo circuito ya resuelto. Investiga, explica y diagnostica cada caso.",
+    asset: E1A_FAULT_CASES[0].asset,
     hints: [
-      "En cada diagrama sigue el camino de corriente y comprueba limitación, polaridad y separación entre VCC y GND.",
+      "El datasheet del L293D es tu mejor herramienta en los casos 2 y 3: revisa qué necesita cada pin para habilitar una salida.",
     ],
   },
 ] as const;
@@ -427,7 +419,7 @@ export const E1A_CHALLENGE = {
 export function createEmptyE1ASubmission(stepId: E1AStepId): E1AStepSubmission {
   if (stepId === "interpretation") return { stepId, response: "" };
   if (stepId === "blocks") return { stepId, assignments: {} };
-  return { stepId, cases: {} };
+  return { stepId, answers: {} };
 }
 
 export function normalizeE1ASubmission(
@@ -453,31 +445,32 @@ export function normalizeE1ASubmission(
     return { stepId, assignments };
   }
 
-  const rawCases = isRecord(record.cases) ? record.cases : {};
-  const cases: Partial<Record<E1AFaultId, E1AFaultAnswer>> = {};
-  for (const fault of E1A_FAULTS) {
-    const rawAnswer = rawCases[fault.id];
-    if (!isRecord(rawAnswer)) continue;
-    const targetId =
-      typeof rawAnswer.targetId === "string" &&
-      fault.targets.some((target) => target.id === rawAnswer.targetId)
-        ? rawAnswer.targetId
-        : "";
-    const causeOptionId =
-      typeof rawAnswer.causeOptionId === "string" &&
-      fault.causeOptions.some((option) => option.id === rawAnswer.causeOptionId)
-        ? rawAnswer.causeOptionId
-        : "";
-    cases[fault.id] = {
-      targetId,
-      causeOptionId,
-      incorrectClicks:
-        typeof rawAnswer.incorrectClicks === "number" && Number.isFinite(rawAnswer.incorrectClicks)
-          ? Math.max(0, Math.floor(rawAnswer.incorrectClicks))
-          : 0,
-    };
+  const rawAnswers = isRecord(record.answers) ? record.answers : {};
+  const answers: Partial<Record<E1AFaultCaseId, E1AFaultCaseAnswers>> = {};
+  for (const faultCase of E1A_FAULT_CASES) {
+    const rawCase = rawAnswers[faultCase.id];
+    if (!isRecord(rawCase)) continue;
+    const caseAnswers: Record<string, E1AFaultQuestionAnswer> = {};
+    for (const question of faultCase.questions) {
+      const rawAnswer = rawCase[question.id];
+      if (!isRecord(rawAnswer)) continue;
+      if (question.kind === "open") {
+        if (typeof rawAnswer.text === "string") {
+          caseAnswers[question.id] = { text: rawAnswer.text };
+        }
+      } else {
+        const validIds = new Set((question.options ?? []).map((option) => option.id));
+        const selected = Array.isArray(rawAnswer.selected)
+          ? rawAnswer.selected.filter(
+              (id): id is string => typeof id === "string" && validIds.has(id)
+            )
+          : [];
+        caseAnswers[question.id] = { selected };
+      }
+    }
+    answers[faultCase.id] = caseAnswers;
   }
-  return { stepId, cases };
+  return { stepId, answers };
 }
 
 export function isE1ADraftReady(submission: E1AStepSubmission): boolean {
@@ -487,9 +480,9 @@ export function isE1ADraftReady(submission: E1AStepSubmission): boolean {
   if (submission.stepId === "blocks") {
     return E1A_BLOCKS.every((block) => Boolean(submission.assignments[block.id]));
   }
-  return E1A_FAULTS.every((fault) => {
-    const answer = submission.cases[fault.id];
-    return Boolean(answer?.targetId && answer.causeOptionId);
+  return E1A_FAULT_CASES.every((faultCase) => {
+    const caseAnswers = submission.answers[faultCase.id];
+    return faultCase.questions.every((question) => isQuestionAnswered(question, caseAnswers));
   });
 }
 
@@ -561,38 +554,77 @@ function evaluateBlocks(submission: E1ABlocksSubmission): E1AStepEvaluation {
   };
 }
 
+function isQuestionAnswered(
+  question: E1AFaultQuestion,
+  caseAnswers: E1AFaultCaseAnswers | undefined
+): boolean {
+  const answer = caseAnswers?.[question.id];
+  if (question.kind === "open") {
+    return normalizedLength(answer?.text ?? "") > 0;
+  }
+  return (answer?.selected ?? []).length > 0;
+}
+
+function isQuestionCorrect(
+  question: E1AFaultQuestion,
+  caseAnswers: E1AFaultCaseAnswers | undefined
+): boolean | null {
+  if (question.kind === "open") return null;
+  const selected = new Set(caseAnswers?.[question.id]?.selected ?? []);
+  const correct = new Set(question.correctOptionIds ?? []);
+  if (selected.size !== correct.size) return false;
+  for (const id of selected) {
+    if (!correct.has(id)) return false;
+  }
+  return true;
+}
+
 function evaluateFaults(submission: E1AFaultsSubmission): E1AStepEvaluation {
-  const items = E1A_FAULTS.map((fault) => {
-    const answer = submission.cases[fault.id];
-    const isAnswered = Boolean(answer?.targetId && answer.causeOptionId);
-    const targetCorrect = answer?.targetId === fault.correctTargetId;
-    const causeCorrect = answer?.causeOptionId === fault.correctCauseOptionId;
-    const isCorrect = targetCorrect && causeCorrect;
-    return {
-      itemId: fault.id,
-      isAnswered,
-      isCorrect,
-      score: isCorrect ? 1 : 0,
-      maxScore: 1,
-      feedback: isCorrect ? fault.feedback.correct : fault.feedback.incorrect,
-    };
-  });
+  const items: E1AItemEvaluation[] = [];
+
+  for (const faultCase of E1A_FAULT_CASES) {
+    const caseAnswers = submission.answers[faultCase.id];
+    for (const question of faultCase.questions) {
+      const isAnswered = isQuestionAnswered(question, caseAnswers);
+      const isCorrect = isQuestionCorrect(question, caseAnswers);
+      const graded = question.kind !== "open";
+      items.push({
+        itemId: `${faultCase.id}:${question.id}`,
+        isAnswered,
+        isCorrect,
+        score: graded ? (isCorrect ? 1 : 0) : isAnswered ? 1 : 0,
+        maxScore: 1,
+        feedback: graded
+          ? isCorrect
+            ? question.feedback?.correct ?? "Respuesta correcta."
+            : question.feedback?.incorrect ?? "Revisa esta respuesta y vuelve a intentarlo."
+          : isAnswered
+            ? "Respuesta registrada para revisión."
+            : "Esta pregunta necesita una respuesta escrita.",
+      });
+    }
+  }
+
   const score = items.reduce((sum, item) => sum + item.score, 0);
-  const incorrectClicks = E1A_FAULTS.reduce(
-    (sum, fault) => sum + (submission.cases[fault.id]?.incorrectClicks ?? 0),
-    0
-  );
-  const isComplete = score === items.length;
+  const isComplete = E1A_FAULT_CASES.every((faultCase) => {
+    const caseAnswers = submission.answers[faultCase.id];
+    return faultCase.questions.every((question) => {
+      if (!isQuestionAnswered(question, caseAnswers)) return false;
+      if (question.kind === "open") return true;
+      return isQuestionCorrect(question, caseAnswers) === true;
+    });
+  });
+
   return {
     stepId: submission.stepId,
     isComplete,
     score,
     maxScore: items.length,
     feedback: isComplete
-      ? "Los tres diagnósticos son correctos. Terminaste la lectura de planos."
-      : `Resolviste ${score} de ${items.length} casos. Ajusta las zonas o causas antes de reintentar.`,
+      ? "Los tres casos quedaron diagnosticados. Terminaste la lectura de planos."
+      : `Tienes ${score} de ${items.length} respuestas listas. Completa las preguntas abiertas y revisa la selección del caso 1.`,
     items,
-    metadata: { correctFaults: score, incorrectDiagramClicks: incorrectClicks },
+    metadata: { answeredItems: items.filter((item) => item.isAnswered).length },
   };
 }
 

@@ -12,7 +12,7 @@ import {
 import {
   E1A_BLOCKS,
   E1A_CHALLENGE,
-  E1A_FAULTS,
+  E1A_FAULT_CASES,
   E1A_FUNCTIONS,
   E1A_STEP_IDS,
   E1A_STEPS,
@@ -20,9 +20,11 @@ import {
   isE1AComplete,
   isE1ADraftReady,
   normalizeE1ASubmission,
+  type E1AAsset,
   type E1ABlocksSubmission,
-  type E1AFaultAnswer,
-  type E1AFaultId,
+  type E1AFaultCaseId,
+  type E1AFaultQuestion,
+  type E1AFaultQuestionAnswer,
   type E1AFaultsSubmission,
   type E1AFunctionId,
   type E1AInterpretationSubmission,
@@ -699,65 +701,72 @@ function FaultsStep({
   disabled: boolean;
   onChange: (draft: E1AStepSubmission) => void;
 }) {
-  const [activeFaultId, setActiveFaultId] = useState<E1AFaultId>(
-    E1A_FAULTS.find(
-      (fault) => !draft.cases[fault.id]?.targetId || !draft.cases[fault.id]?.causeOptionId
-    )?.id ?? E1A_FAULTS[E1A_FAULTS.length - 1].id
-  );
-  const fault = E1A_FAULTS.find((item) => item.id === activeFaultId) ?? E1A_FAULTS[0];
-  const activeIndex = E1A_FAULTS.findIndex((item) => item.id === activeFaultId);
-  const answer: E1AFaultAnswer = draft.cases[activeFaultId] ?? {
-    targetId: "",
-    causeOptionId: "",
-    incorrectClicks: 0,
+  const isCaseComplete = (caseId: E1AFaultCaseId) => {
+    const faultCase = E1A_FAULT_CASES.find((item) => item.id === caseId);
+    if (!faultCase) return false;
+    const caseAnswers = draft.answers[caseId];
+    return faultCase.questions.every((question) => {
+      const answer = caseAnswers?.[question.id];
+      if (question.kind === "open") return Boolean(answer?.text?.trim());
+      return (answer?.selected ?? []).length > 0;
+    });
   };
 
-  const updateAnswer = (next: E1AFaultAnswer) => {
+  const [activeCaseId, setActiveCaseId] = useState<E1AFaultCaseId>(
+    E1A_FAULT_CASES.find((item) => !isCaseComplete(item.id))?.id ??
+      E1A_FAULT_CASES[E1A_FAULT_CASES.length - 1].id
+  );
+
+  const faultCase = E1A_FAULT_CASES.find((item) => item.id === activeCaseId) ?? E1A_FAULT_CASES[0];
+  const activeIndex = E1A_FAULT_CASES.findIndex((item) => item.id === activeCaseId);
+  const caseAnswers = draft.answers[activeCaseId] ?? {};
+
+  const updateQuestion = (questionId: string, next: E1AFaultQuestionAnswer) => {
     if (disabled) return;
-    onChange({ ...draft, cases: { ...draft.cases, [activeFaultId]: next } });
-  };
-  const selectTarget = (targetId: string) => {
-    const isWrongNewClick =
-      targetId !== fault.correctTargetId && targetId !== answer.targetId;
-    updateAnswer({
-      ...answer,
-      targetId,
-      incorrectClicks: answer.incorrectClicks + (isWrongNewClick ? 1 : 0),
+    onChange({
+      ...draft,
+      answers: {
+        ...draft.answers,
+        [activeCaseId]: { ...caseAnswers, [questionId]: next },
+      },
     });
   };
-  const itemEvaluation = evaluation?.items.find((item) => item.itemId === activeFaultId);
-  const answerReady = Boolean(answer.targetId && answer.causeOptionId);
-  const allCasesReady = E1A_FAULTS.every((item) => {
-    const caseAnswer = draft.cases[item.id];
-    return Boolean(caseAnswer?.targetId && caseAnswer.causeOptionId);
-  });
+
+  const toggleOption = (question: E1AFaultQuestion, optionId: string) => {
+    if (question.kind === "single") {
+      updateQuestion(question.id, { selected: [optionId] });
+      return;
+    }
+    const current = new Set(caseAnswers[question.id]?.selected ?? []);
+    if (current.has(optionId)) current.delete(optionId);
+    else current.add(optionId);
+    updateQuestion(question.id, { selected: Array.from(current) });
+  };
+
+  const caseReady = isCaseComplete(activeCaseId);
+  const allCasesReady = E1A_FAULT_CASES.every((item) => isCaseComplete(item.id));
   const canOpenCase = (index: number) =>
-    index === 0 || E1A_FAULTS.slice(0, index).every((item) => {
-      const caseAnswer = draft.cases[item.id];
-      return Boolean(caseAnswer?.targetId && caseAnswer.causeOptionId);
-    });
-  const nextFault = E1A_FAULTS[activeIndex + 1];
+    index === 0 || E1A_FAULT_CASES.slice(0, index).every((item) => isCaseComplete(item.id));
+  const nextCase = E1A_FAULT_CASES[activeIndex + 1];
 
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-3 gap-2" role="tablist" aria-label="Casos de diagnóstico">
-        {E1A_FAULTS.map((item, index) => {
-          const completeDraft = Boolean(
-            draft.cases[item.id]?.targetId && draft.cases[item.id]?.causeOptionId
-          );
+        {E1A_FAULT_CASES.map((item, index) => {
+          const complete = isCaseComplete(item.id);
           const available = canOpenCase(index);
           return (
             <button
               key={item.id}
               type="button"
               role="tab"
-              aria-selected={item.id === activeFaultId}
+              aria-selected={item.id === activeCaseId}
               disabled={!available}
-              onClick={() => setActiveFaultId(item.id)}
+              onClick={() => setActiveCaseId(item.id)}
               className={`min-h-14 rounded-xl border px-2 py-2 text-left transition ${
-                item.id === activeFaultId
+                item.id === activeCaseId
                   ? "border-[#5CE1FF]/55 bg-[#0A84C7]/18 text-white"
-                  : completeDraft
+                  : complete
                     ? "border-emerald-400/20 bg-emerald-400/[0.06] text-emerald-200"
                     : available
                       ? "border-white/10 bg-white/[0.025] text-slate-400 hover:border-white/20"
@@ -765,7 +774,7 @@ function FaultsStep({
               }`}
             >
               <span className="block text-[9px] font-black uppercase tracking-[0.13em]">
-                {completeDraft ? "Respondido" : `Caso ${index + 1}`}
+                {complete ? "Respondido" : `Caso ${index + 1}`}
               </span>
               <span className="mt-0.5 hidden text-[11px] font-semibold sm:block">
                 {item.title.replace(/^Caso \d+ · /, "")}
@@ -778,107 +787,98 @@ function FaultsStep({
       <article className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02]">
         <div className="p-4 sm:p-5">
           <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#69dcf8]">
-            Diagnóstico {activeIndex + 1} de {E1A_FAULTS.length}
+            Diagnóstico {activeIndex + 1} de {E1A_FAULT_CASES.length}
           </p>
-          <h4 className="mt-1 font-heading text-lg font-bold text-white">{fault.title}</h4>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">{fault.prompt}</p>
+          <h4 className="mt-1 font-heading text-lg font-bold text-white">{faultCase.title}</h4>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">{faultCase.prompt}</p>
         </div>
 
-        <figure className="border-y border-white/10 bg-[#04131d] p-3 sm:p-5">
-          <FaultCircuitDiagram faultId={activeFaultId} />
-          <figcaption className="mt-3 text-center text-xs leading-5 text-slate-400">
-            Observa primero el circuito completo. Después responde las dos preguntas debajo del diagrama.
-          </figcaption>
-        </figure>
+        <div className="border-y border-white/10 bg-[#04131d] p-3 sm:p-5">
+          <ChallengeImage asset={faultCase.asset} />
+        </div>
 
-        <div className="space-y-5 p-4 sm:p-5">
-          <fieldset>
-            <legend className="sr-only">Zona del circuito que explica el síntoma</legend>
-            <p aria-hidden="true" className="text-sm font-bold text-white">
-              1. ¿Qué zona revisarías primero?
-            </p>
-            <div className="mt-3 grid gap-2 sm:grid-cols-3">
-              {fault.targets.map((target) => (
-                <label
-                  key={target.id}
-                  className={`flex min-h-14 cursor-pointer items-center gap-3 rounded-xl border px-3 py-3 text-xs leading-5 transition ${
-                    answer.targetId === target.id
-                      ? "border-[#5CE1FF]/50 bg-[#0A84C7]/15 text-white"
-                      : "border-white/10 bg-[#04131d]/55 text-slate-300 hover:border-white/20"
-                  } ${disabled ? "cursor-default opacity-70" : ""}`}
-                >
-                  <input
-                    type="radio"
-                    name={`fault-target-${activeFaultId}`}
-                    value={target.id}
-                    checked={answer.targetId === target.id}
+        <div className="space-y-6 p-4 sm:p-5">
+          {faultCase.questions.map((question, qIndex) => {
+            const answer = caseAnswers[question.id];
+            const itemEvaluation = evaluation?.items.find(
+              (item) => item.itemId === `${activeCaseId}:${question.id}`
+            );
+            return (
+              <fieldset key={question.id}>
+                <legend className="sr-only">{question.prompt}</legend>
+                <p aria-hidden="true" className="text-sm font-bold text-white">
+                  {qIndex + 1}. {question.prompt}
+                </p>
+
+                {question.kind === "open" && (
+                  <textarea
+                    value={answer?.text ?? ""}
                     disabled={disabled}
-                    onChange={() => selectTarget(target.id)}
-                    className="h-4 w-4 shrink-0 accent-[#39C8F0]"
+                    onChange={(event) => updateQuestion(question.id, { text: event.target.value })}
+                    rows={4}
+                    placeholder="Escribe tu respuesta…"
+                    className="mt-3 w-full resize-y rounded-xl border border-white/10 bg-[#04131d] px-4 py-3 text-sm leading-6 text-white outline-none transition placeholder:text-slate-600 focus:border-[#5CE1FF]/55 focus:ring-2 focus:ring-[#0A84C7]/20 disabled:opacity-70"
                   />
-                  {target.accessibleLabel}
-                </label>
-              ))}
-            </div>
-          </fieldset>
+                )}
 
-          <fieldset>
-            <legend className="sr-only">{fault.causePrompt}</legend>
-            <p aria-hidden="true" className="text-sm font-bold text-white">
-              2. {fault.causePrompt}
-            </p>
-            <div className="mt-3 grid gap-2 lg:grid-cols-3">
-            {fault.causeOptions.map((option) => (
-              <label
-                key={option.id}
-                className={`flex cursor-pointer items-start gap-2 rounded-xl border px-3 py-3 text-xs leading-5 transition ${
-                  answer.causeOptionId === option.id
-                    ? "border-[#5CE1FF]/45 bg-[#0A84C7]/15 text-white"
-                    : "border-white/10 bg-[#04131d]/55 text-slate-300 hover:border-white/20"
-                } ${disabled ? "cursor-default opacity-70" : ""}`}
-              >
-                <input
-                  type="radio"
-                  name={`fault-cause-${activeFaultId}`}
-                  value={option.id}
-                  checked={answer.causeOptionId === option.id}
-                  disabled={disabled}
-                  onChange={() => updateAnswer({ ...answer, causeOptionId: option.id })}
-                  className="mt-0.5 h-4 w-4 shrink-0 accent-[#39C8F0]"
-                />
-                {option.label}
-              </label>
-            ))}
-            </div>
-          </fieldset>
+                {(question.kind === "single" || question.kind === "multiple") && (
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    {(question.options ?? []).map((option) => {
+                      const selected = (answer?.selected ?? []).includes(option.id);
+                      return (
+                        <label
+                          key={option.id}
+                          className={`flex cursor-pointer items-start gap-2 rounded-xl border px-3 py-3 text-xs leading-5 transition ${
+                            selected
+                              ? "border-[#5CE1FF]/45 bg-[#0A84C7]/15 text-white"
+                              : "border-white/10 bg-[#04131d]/55 text-slate-300 hover:border-white/20"
+                          } ${disabled ? "cursor-default opacity-70" : ""}`}
+                        >
+                          <input
+                            type={question.kind === "single" ? "radio" : "checkbox"}
+                            name={`fault-${activeCaseId}-${question.id}`}
+                            checked={selected}
+                            disabled={disabled}
+                            onChange={() => toggleOption(question, option.id)}
+                            className="mt-0.5 h-4 w-4 shrink-0 accent-[#39C8F0]"
+                          />
+                          {option.label}
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
 
-          {itemEvaluation && (
-            <p
-              className={`rounded-xl border px-3 py-3 text-xs leading-5 ${
-                itemEvaluation.isCorrect
-                  ? "border-emerald-400/25 bg-emerald-400/[0.07] text-emerald-200"
-                  : "border-amber-300/20 bg-amber-300/[0.05] text-amber-100"
-              }`}
-            >
-              {itemEvaluation.feedback}
-            </p>
-          )}
+                {itemEvaluation && question.kind !== "open" && (
+                  <p
+                    className={`mt-3 rounded-xl border px-3 py-3 text-xs leading-5 ${
+                      itemEvaluation.isCorrect
+                        ? "border-emerald-400/25 bg-emerald-400/[0.07] text-emerald-200"
+                        : "border-amber-300/20 bg-amber-300/[0.05] text-amber-100"
+                    }`}
+                  >
+                    {itemEvaluation.feedback}
+                  </p>
+                )}
+              </fieldset>
+            );
+          })}
 
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
             <p className="text-xs text-slate-400">
-              {nextFault
-                ? answerReady
+              {nextCase
+                ? caseReady
                   ? "Caso respondido. Puedes continuar y volver después si quieres cambiarlo."
-                  : "Responde ambas preguntas para abrir el siguiente caso."
+                  : "Responde todas las preguntas para abrir el siguiente caso."
                 : allCasesReady
                   ? "Los tres casos están respondidos. Ahora valida el paso."
-                  : "Completa ambas preguntas para terminar el diagnóstico."}
+                  : "Completa las preguntas para terminar el diagnóstico."}
             </p>
-            {nextFault && (
+            {nextCase && (
               <button
                 type="button"
-                disabled={!answerReady}
-                onClick={() => setActiveFaultId(nextFault.id)}
+                disabled={!caseReady}
+                onClick={() => setActiveCaseId(nextCase.id)}
                 className="min-h-10 rounded-xl border border-[#5CE1FF]/30 bg-[#0A84C7]/12 px-4 text-xs font-bold text-[#9cecff] transition hover:bg-[#0A84C7]/20 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Continuar al caso {activeIndex + 2} →
@@ -891,98 +891,11 @@ function FaultsStep({
   );
 }
 
-function FaultCircuitDiagram({ faultId }: { faultId: E1AFaultId }) {
-  const title = E1A_FAULTS.find((fault) => fault.id === faultId)?.title ?? "Circuito para diagnóstico";
-  const common = { fill: "none", stroke: "#C7D7E2", strokeWidth: 4 } as const;
-  const wire = { fill: "none", stroke: "#39C8F0", strokeWidth: 5 } as const;
-  const mutedWire = { fill: "none", stroke: "#5F7E91", strokeWidth: 4 } as const;
-
-  return (
-    <svg
-      viewBox="0 0 920 360"
-      role="img"
-      aria-label={`Diagrama del ${title.toLowerCase()}`}
-      className="mx-auto block h-auto w-full max-w-5xl"
-    >
-      <rect x="1" y="1" width="918" height="358" rx="24" fill="#071824" stroke="rgba(255,255,255,0.1)" />
-
-      {faultId === "missing-resistor" && (
-        <>
-          <rect x="70" y="115" width="160" height="130" rx="18" fill="#102E41" stroke="#39C8F0" strokeWidth="3" />
-          <text x="150" y="158" textAnchor="middle" className="fill-[#F5FAFD] text-[22px] font-bold">ESP32</text>
-          <text x="150" y="195" textAnchor="middle" className="fill-[#9CB6C8] text-[17px]">GPIO 18 · 3,3 V</text>
-          <line x1="230" y1="180" x2="430" y2="180" {...wire} />
-          <path d="M430 135 L505 180 L430 225 Z" {...common} />
-          <line x1="520" y1="130" x2="520" y2="230" {...common} />
-          <path d="M540 142 l42 -35 M548 174 l42 -35" {...wire} />
-          <line x1="520" y1="180" x2="735" y2="180" {...wire} />
-          <line x1="735" y1="180" x2="735" y2="254" {...mutedWire} />
-          <line x1="695" y1="254" x2="775" y2="254" {...common} />
-          <line x1="707" y1="269" x2="763" y2="269" {...common} />
-          <line x1="720" y1="284" x2="750" y2="284" {...common} />
-          <text x="150" y="92" textAnchor="middle" className="fill-[#69DCF8] text-[18px] font-bold">ZONA A</text>
-          <text x="480" y="92" textAnchor="middle" className="fill-[#69DCF8] text-[18px] font-bold">ZONA B</text>
-          <text x="735" y="92" textAnchor="middle" className="fill-[#69DCF8] text-[18px] font-bold">ZONA C</text>
-          <text x="480" y="300" textAnchor="middle" className="fill-[#9CB6C8] text-[16px]">Rama de salida</text>
-        </>
-      )}
-
-      {faultId === "reverse-polarity" && (
-        <>
-          <rect x="75" y="105" width="180" height="150" rx="18" fill="#102E41" stroke="#39C8F0" strokeWidth="3" />
-          <text x="165" y="150" textAnchor="middle" className="fill-[#F5FAFD] text-[22px] font-bold">FUENTE</text>
-          <text x="165" y="190" textAnchor="middle" className="fill-[#9CB6C8] text-[17px]">5 V</text>
-          <circle cx="225" cy="130" r="13" fill="#071824" stroke="#C7D7E2" strokeWidth="3" />
-          <circle cx="225" cy="230" r="13" fill="#071824" stroke="#C7D7E2" strokeWidth="3" />
-          <text x="225" y="136" textAnchor="middle" className="fill-[#F5FAFD] text-[18px] font-bold">+</text>
-          <text x="225" y="236" textAnchor="middle" className="fill-[#F5FAFD] text-[18px] font-bold">−</text>
-          <rect x="610" y="85" width="230" height="190" rx="20" fill="#102E41" stroke="#39C8F0" strokeWidth="3" />
-          <text x="725" y="137" textAnchor="middle" className="fill-[#F5FAFD] text-[22px] font-bold">MÓDULO</text>
-          <circle cx="630" cy="130" r="13" fill="#071824" stroke="#C7D7E2" strokeWidth="3" />
-          <circle cx="630" cy="230" r="13" fill="#071824" stroke="#C7D7E2" strokeWidth="3" />
-          <text x="663" y="137" className="fill-[#9CB6C8] text-[16px]">VCC</text>
-          <text x="663" y="237" className="fill-[#9CB6C8] text-[16px]">GND</text>
-          <path d="M238 130 C390 130 450 230 617 230" {...wire} />
-          <path d="M238 230 C390 230 450 130 617 130" {...mutedWire} />
-          <line x1="840" y1="180" x2="875" y2="180" {...wire} />
-          <text x="165" y="72" textAnchor="middle" className="fill-[#69DCF8] text-[18px] font-bold">ZONA A</text>
-          <text x="725" y="55" textAnchor="middle" className="fill-[#69DCF8] text-[18px] font-bold">ZONA B</text>
-          <text x="850" y="145" textAnchor="middle" className="fill-[#69DCF8] text-[18px] font-bold">ZONA C</text>
-          <text x="435" y="315" textAnchor="middle" className="fill-[#9CB6C8] text-[16px]">Sigue cada conductor hasta su terminal</text>
-        </>
-      )}
-
-      {faultId === "short-circuit" && (
-        <>
-          <rect x="70" y="105" width="180" height="150" rx="18" fill="#102E41" stroke="#39C8F0" strokeWidth="3" />
-          <text x="160" y="153" textAnchor="middle" className="fill-[#F5FAFD] text-[22px] font-bold">FUENTE</text>
-          <text x="160" y="192" textAnchor="middle" className="fill-[#9CB6C8] text-[17px]">5 V · limitada</text>
-          <line x1="250" y1="125" x2="800" y2="125" {...wire} />
-          <line x1="250" y1="235" x2="800" y2="235" {...mutedWire} />
-          <text x="280" y="105" className="fill-[#F5FAFD] text-[16px] font-bold">VCC</text>
-          <text x="280" y="265" className="fill-[#F5FAFD] text-[16px] font-bold">GND</text>
-          <path d="M445 125 L445 235" {...common} />
-          <circle cx="445" cy="125" r="7" className="fill-[#C7D7E2]" />
-          <circle cx="445" cy="235" r="7" className="fill-[#C7D7E2]" />
-          <rect x="675" y="155" width="165" height="70" rx="14" fill="#102E41" stroke="#C7D7E2" strokeWidth="3" />
-          <text x="758" y="198" textAnchor="middle" className="fill-[#F5FAFD] text-[19px] font-bold">CARGA</text>
-          <line x1="758" y1="125" x2="758" y2="155" {...wire} />
-          <line x1="758" y1="225" x2="758" y2="235" {...mutedWire} />
-          <text x="445" y="82" textAnchor="middle" className="fill-[#69DCF8] text-[18px] font-bold">ZONA A</text>
-          <text x="758" y="82" textAnchor="middle" className="fill-[#69DCF8] text-[18px] font-bold">ZONA B</text>
-          <text x="160" y="72" textAnchor="middle" className="fill-[#69DCF8] text-[18px] font-bold">ZONA C</text>
-          <text x="510" y="315" textAnchor="middle" className="fill-[#9CB6C8] text-[16px]">Compara los recorridos entre las dos líneas</text>
-        </>
-      )}
-    </svg>
-  );
-}
-
 function ChallengeImage({
   asset,
   priority = false,
 }: {
-  asset: E1AStepDefinition["asset"];
+  asset: E1AAsset;
   priority?: boolean;
 }) {
   return (
@@ -997,8 +910,8 @@ function ChallengeImage({
         <Image
           src={`${PUBLIC_BASE_PATH}${asset.src}`}
           alt={asset.alt}
-          width={915}
-          height={835}
+          width={asset.width}
+          height={asset.height}
           priority={priority}
           className="h-auto w-full"
         />
