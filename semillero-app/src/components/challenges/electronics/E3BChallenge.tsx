@@ -1,17 +1,28 @@
 "use client";
 
-import Image from "next/image";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { LocalEvidenceUploader } from "@/components/challenges/LocalEvidenceUploader";
 import {
-  E3B_CAUSE_OPTIONS,
   E3B_CHALLENGE,
-  E3B_CORRECTION_OPTIONS,
-  E3B_MEASUREMENTS,
+  E3B_MINIMUMS,
+  E3B_MOTOR_STATES,
+  E3B_STEP_IDS,
   createE3BDraft,
-  evaluateE3B,
-  type E3BEvaluation,
+  isE3BStepId,
+  validateE3B,
+  type E3BCondition,
+  type E3BExploreSubmission,
+  type E3BMotorStateId,
+  type E3BReflectSubmission,
+  type E3BScenario,
+  type E3BSimulateSubmission,
+  type E3BSimulatorEntry,
+  type E3BStepId,
+  type E3BStepValidation,
   type E3BSubmission,
+  type E3BTestSubmission,
 } from "@/lib/challenges/electronics/e3b";
+import type { LocalEvidenceFile } from "@/lib/challenges/evidenceStore";
 import type {
   ChallengeAttempt,
   ChallengeStepProgress,
@@ -26,8 +37,7 @@ export interface E3BChallengeProps {
   onComplete: (finalProgress: NodeChallengeProgress) => void;
 }
 
-const STEP_ID = "hardware-diagnosis";
-const PUBLIC_BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+type ValidationMap = Partial<Record<E3BStepId, E3BStepValidation>>;
 
 export function E3BChallenge({
   savedProgress,
@@ -35,26 +45,42 @@ export function E3BChallenge({
   onSave,
   onComplete,
 }: E3BChallengeProps) {
-  const initial = useMemo(() => createInitialProgress(savedProgress), [savedProgress]);
-  const [progress, setProgress] = useState(initial);
-  const [evaluation, setEvaluation] = useState<E3BEvaluation | null>(() => {
-    const last = initial.steps[STEP_ID].attempts.at(-1);
-    return last ? evaluateE3B(normalizeDraft(last.answer)) : null;
-  });
-  const [labTab, setLabTab] = useState<"observations" | "measurements">("observations");
+  const [progress, setProgress] = useState<NodeChallengeProgress>(() =>
+    createInitialProgress(savedProgress)
+  );
+  const [validations, setValidations] = useState<ValidationMap>(() =>
+    deriveValidations(createInitialProgress(savedProgress))
+  );
+  const [saveState, setSaveState] = useState<"saved" | "saving">("saved");
   const [announcement, setAnnouncement] = useState("");
-  const progressRef = useRef(initial);
+  const progressRef = useRef(progress);
   const onSaveRef = useRef(onSave);
   const onCompleteRef = useRef(onComplete);
-  const startedAtRef = useRef<number | null>(null);
-  const completionNotifiedRef = useRef(Boolean(initial.completedAt));
+  const completedNotifiedRef = useRef(Boolean(progress.completedAt));
+  const activeStartedAtRef = useRef(new Date().getTime());
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
     onSaveRef.current = onSave;
   }, [onSave]);
+
   useEffect(() => {
     onCompleteRef.current = onComplete;
   }, [onComplete]);
+
+  const signalSaved = useCallback(() => {
+    setSaveState("saving");
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => setSaveState("saved"), 420);
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    },
+    []
+  );
 
   const commit = useCallback(
     (mutate: (current: NodeChallengeProgress) => NodeChallengeProgress) => {
@@ -62,284 +88,1024 @@ export function E3BChallenge({
       progressRef.current = next;
       setProgress(next);
       onSaveRef.current(next);
+      signalSaved();
       return next;
     },
-    []
+    [signalSaved]
   );
 
-  const checkpoint = useCallback((eventName: string, updateView = true) => {
-    const now = Date.now();
-    const elapsed = startedAtRef.current === null
-      ? 0
-      : Math.max(0, Math.floor((now - startedAtRef.current) / 1_000));
-    if (startedAtRef.current !== null) startedAtRef.current = now;
-    const current = progressRef.current;
-    const next: NodeChallengeProgress = {
-      ...current,
-      updatedAt: now,
-      steps: {
-        ...current.steps,
-        [STEP_ID]: {
-          ...current.steps[STEP_ID],
-          totalActiveSeconds:
-            current.steps[STEP_ID].totalActiveSeconds + elapsed,
+  const addActiveTime = useCallback(
+    (current: NodeChallengeProgress, now: number): NodeChallengeProgress => {
+      const stepId = toStepId(current.currentStepId);
+      const elapsed = readOnly
+        ? 0
+        : Math.max(0, Math.floor((now - activeStartedAtRef.current) / 1_000));
+      activeStartedAtRef.current = now;
+      if (elapsed === 0) return current;
+      return {
+        ...current,
+        steps: {
+          ...current.steps,
+          [stepId]: {
+            ...current.steps[stepId],
+            totalActiveSeconds: current.steps[stepId].totalActiveSeconds + elapsed,
+          },
         },
-      },
-      analytics: { ...current.analytics, lastEvent: eventName },
-    };
-    progressRef.current = next;
-    if (updateView) setProgress(next);
-    onSaveRef.current(next);
-  }, []);
+      };
+    },
+    [readOnly]
+  );
 
   useEffect(() => {
-    if (readOnly || progress.completedAt) return;
-    if (document.visibilityState === "visible") startedAtRef.current = Date.now();
-    onSaveRef.current(progressRef.current);
-    const onVisibility = () => {
-      if (document.visibilityState === "hidden") {
-        checkpoint("visibility_hidden");
-        startedAtRef.current = null;
-      } else {
-        startedAtRef.current = Date.now();
-      }
+    if (readOnly || progressRef.current.completedAt) return;
+
+    const checkpoint = () => {
+      const now = Date.now();
+      const timed = addActiveTime(progressRef.current, now);
+      const next = {
+        ...timed,
+        updatedAt: now,
+        analytics: buildAnalytics(timed, "challenge_paused"),
+      };
+      progressRef.current = next;
+      onSaveRef.current(next);
     };
-    const onPageHide = () => checkpoint("page_hidden", false);
-    document.addEventListener("visibilitychange", onVisibility);
-    window.addEventListener("pagehide", onPageHide);
+    window.addEventListener("pagehide", checkpoint);
     return () => {
-      document.removeEventListener("visibilitychange", onVisibility);
-      window.removeEventListener("pagehide", onPageHide);
-      checkpoint("challenge_closed", false);
-      startedAtRef.current = null;
+      window.removeEventListener("pagehide", checkpoint);
+      checkpoint();
     };
-  }, [checkpoint, progress.completedAt, readOnly]);
+  }, [addActiveTime, readOnly]);
 
-  const stepProgress = progress.steps[STEP_ID];
-  const draft = normalizeDraft(stepProgress.draft);
-  const solved = hasSolved(stepProgress);
-  const minimumCharacters =
-    E3B_CHALLENGE.steps[STEP_ID].minimumExplanationCharacters;
-  const draftReady = Boolean(
-    draft.causeOptionId &&
-      draft.correctionOptionId &&
-      draft.explanation.trim().length >= minimumCharacters
+  useEffect(() => {
+    if (!readOnly && !progressRef.current.completedAt) {
+      onSaveRef.current(progressRef.current);
+    }
+  }, [readOnly]);
+
+  const currentStepId = toStepId(progress.currentStepId);
+  const currentStepProgress = progress.steps[currentStepId];
+  const currentDraft = currentStepProgress.draft as unknown as E3BSubmission;
+  const currentValidation = validations[currentStepId];
+  const currentSolved = isSolved(currentStepProgress);
+  const completedCount = E3B_STEP_IDS.filter((id) => isSolved(progress.steps[id])).length;
+  const totalAttempts = E3B_STEP_IDS.reduce(
+    (total, id) => total + progress.steps[id].attempts.length,
+    0
   );
+  const totalHints = E3B_STEP_IDS.reduce(
+    (total, id) => total + progress.steps[id].revealedHints,
+    0
+  );
+  const totalSeconds = E3B_STEP_IDS.reduce(
+    (total, id) => total + progress.steps[id].totalActiveSeconds,
+    0
+  );
+  const hints = E3B_CHALLENGE.steps[currentStepId].hints;
 
-  const changeDraft = (patch: Partial<E3BSubmission>) => {
-    if (readOnly || solved) return;
-    setEvaluation(null);
-    const nextDraft: E3BSubmission = { ...draft, ...patch, stepId: STEP_ID };
-    commit((current) => ({
-      ...current,
-      updatedAt: Date.now(),
-      steps: {
+  const changeDraft = (draft: E3BSubmission) => {
+    if (readOnly || currentSolved || draft.stepId !== currentStepId) return;
+    setValidations((current) => ({ ...current, [currentStepId]: undefined }));
+    commit((current) => {
+      const now = Date.now();
+      const steps = {
         ...current.steps,
-        [STEP_ID]: { ...current.steps[STEP_ID], draft: toJson(nextDraft) },
-      },
-      analytics: { ...current.analytics, lastEvent: "answer_changed" },
-    }));
+        [currentStepId]: {
+          ...current.steps[currentStepId],
+          draft: toJsonValue(draft),
+        },
+      };
+      const next = { ...current, steps, updatedAt: now };
+      return { ...next, analytics: buildAnalytics(next, "answer_changed") };
+    });
   };
 
   const revealHint = () => {
-    if (readOnly || solved || stepProgress.revealedHints > 0) return;
-    commit((current) => ({
-      ...current,
-      updatedAt: Date.now(),
-      steps: {
-        ...current.steps,
-        [STEP_ID]: { ...current.steps[STEP_ID], revealedHints: 1 },
-      },
-      analytics: { ...current.analytics, lastEvent: "hint_opened" },
-    }));
-    setAnnouncement("Pista disponible debajo del diagnóstico.");
-  };
-
-  const submit = () => {
-    if (readOnly || solved || !draftReady) {
-      setAnnouncement("Completa la causa, la corrección y la explicación antes de comprobar.");
+    if (
+      readOnly ||
+      currentSolved ||
+      currentStepProgress.revealedHints >= hints.length
+    ) {
       return;
     }
-    const result = evaluateE3B(draft);
-    const now = Date.now();
-    const attempt: ChallengeAttempt = {
-      id: crypto.randomUUID(),
-      nodeId: "E3B",
-      stepId: STEP_ID,
-      attemptNumber: stepProgress.attempts.length + 1,
-      startedAt: Math.max(progress.startedAt, now - stepProgress.totalActiveSeconds * 1_000),
-      submittedAt: now,
-      durationSeconds: stepProgress.totalActiveSeconds,
-      answer: toJson(draft),
-      isCorrect: result.isComplete,
-      hintsUsed: stepProgress.revealedHints,
-      score: result.score,
-      metadata: { maxScore: result.maxScore, reviewerRequired: true },
-    };
-    setEvaluation(result);
-    const next = commit((current) => ({
-      ...current,
-      updatedAt: now,
-      completedAt: result.isComplete ? current.completedAt ?? now : null,
-      steps: {
+    const revealedHints = currentStepProgress.revealedHints + 1;
+    commit((current) => {
+      const now = Date.now();
+      const steps = {
         ...current.steps,
-        [STEP_ID]: {
-          ...current.steps[STEP_ID],
-          attempts: [...current.steps[STEP_ID].attempts, attempt],
-          solvedAt: result.isComplete ? now : null,
+        [currentStepId]: {
+          ...current.steps[currentStepId],
+          revealedHints,
         },
-      },
-      analytics: {
-        ...current.analytics,
-        lastEvent: result.isComplete ? "challenge_completed" : "attempt_failed",
-        totalAttempts: current.steps[STEP_ID].attempts.length + 1,
-      },
-    }));
+      };
+      const next = { ...current, steps, updatedAt: now };
+      return {
+        ...next,
+        analytics: {
+          ...buildAnalytics(next, "hint_revealed"),
+          lastHintNumber: revealedHints,
+        },
+      };
+    });
+    setAnnouncement(`Pista ${revealedHints} disponible.`);
+  };
+
+  const submitStep = () => {
+    if (readOnly || currentSolved) return;
+    const result = validateE3B(currentDraft);
+    setValidations((current) => ({ ...current, [currentStepId]: result }));
+    if (!result.isComplete) {
+      setAnnouncement(result.feedback);
+      return;
+    }
+
+    const now = new Date().getTime();
+    let challengeComplete = false;
+
+    const finalProgress = commit((current) => {
+      const timed = addActiveTime(current, now);
+      const previousStep = timed.steps[currentStepId];
+      const attemptNumber = previousStep.attempts.length + 1;
+      const usedSeconds = previousStep.attempts.reduce(
+        (total, attempt) => total + attempt.durationSeconds,
+        0
+      );
+      const attempt: ChallengeAttempt = {
+        id: `E3B-${currentStepId}-${now}-${attemptNumber}`,
+        nodeId: "E3B",
+        stepId: currentStepId,
+        attemptNumber,
+        startedAt: now - Math.max(0, previousStep.totalActiveSeconds - usedSeconds) * 1_000,
+        submittedAt: now,
+        durationSeconds: Math.max(0, previousStep.totalActiveSeconds - usedSeconds),
+        answer: toJsonValue(currentDraft),
+        isCorrect: null,
+        hintsUsed: previousStep.revealedHints,
+        score: 1,
+        metadata: { maxScore: 1, reviewerRequired: true },
+      };
+      const steps = {
+        ...timed.steps,
+        [currentStepId]: {
+          ...previousStep,
+          draft: toJsonValue(currentDraft),
+          attempts: [...previousStep.attempts, attempt],
+          solvedAt: previousStep.solvedAt ?? now,
+        },
+      };
+      challengeComplete = E3B_STEP_IDS.every((id) => isSolved(steps[id]));
+      const next = {
+        ...timed,
+        steps,
+        updatedAt: now,
+        completedAt: challengeComplete ? timed.completedAt ?? now : null,
+      };
+      return {
+        ...next,
+        analytics: { ...buildAnalytics(next, "step_solved"), reviewerRequired: true },
+      };
+    });
+
     setAnnouncement(result.feedback);
-    if (next.completedAt && !completionNotifiedRef.current) {
-      completionNotifiedRef.current = true;
-      onCompleteRef.current(next);
+    if (challengeComplete && !completedNotifiedRef.current) {
+      completedNotifiedRef.current = true;
+      onCompleteRef.current(finalProgress);
     }
   };
 
-  const asset = E3B_CHALLENGE.steps[STEP_ID].assets;
+  const goToStep = (stepId: E3BStepId) => {
+    if (stepId === currentStepId || !canVisit(progress, stepId, readOnly)) return;
+    if (readOnly) {
+      const next = { ...progressRef.current, currentStepId: stepId };
+      progressRef.current = next;
+      setProgress(next);
+    } else {
+      commit((current) => {
+        const now = Date.now();
+        const timed = addActiveTime(current, now);
+        const next = { ...timed, currentStepId: stepId, updatedAt: now };
+        return { ...next, analytics: buildAnalytics(next, "step_changed") };
+      });
+    }
+    activeStartedAtRef.current = new Date().getTime();
+    setAnnouncement(`Paso ${E3B_STEP_IDS.indexOf(stepId) + 1}: ${stepTitle(stepId)}.`);
+    requestAnimationFrame(() => headingRef.current?.focus());
+  };
+
+  const stepContent = E3B_CHALLENGE.steps[currentStepId];
 
   return (
-    <article className="overflow-hidden rounded-3xl border border-line bg-surface/45 shadow-[0_24px_70px_rgba(0,0,0,.2)]">
-      <header className="border-b border-line bg-gradient-to-r from-[#0c3155] to-[#0a2945] p-5 sm:p-7">
+    <section className="overflow-hidden rounded-[1.75rem] border border-line bg-night/70 text-ink shadow-2xl shadow-black/20">
+      <div className="border-b border-line bg-gradient-to-br from-surface/80 to-night px-4 py-5 sm:px-7 sm:py-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="max-w-3xl">
-            <p className="text-[10px] font-semibold uppercase tracking-[.18em] text-cyan">Electrónica · E3B · Laboratorio</p>
-            <h2 id="skill-detail-title" className="mt-2 font-heading text-2xl font-semibold text-ink sm:text-3xl">{E3B_CHALLENGE.title}</h2>
-            <p id="skill-detail-description" className="mt-2 text-sm leading-6 text-muted">{E3B_CHALLENGE.subtitle}</p>
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-cyan">E3B · Laboratorio digital</p>
+            <h2 id="skill-detail-title" className="mt-2 font-heading text-2xl font-bold sm:text-3xl">{E3B_CHALLENGE.title}</h2>
+            <p id="skill-detail-description" className="mt-2 max-w-2xl text-sm leading-6 text-muted">{E3B_CHALLENGE.subtitle}</p>
           </div>
-          <div className="flex gap-2 text-[11px]">
-            <Metric label="Intentos" value={String(stepProgress.attempts.length)} />
-            <Metric label="Tiempo" value={formatTime(stepProgress.totalActiveSeconds)} />
+          <div className="flex flex-wrap gap-2">
+            <Stat label="Pasos" value={`${completedCount}/${E3B_STEP_IDS.length}`} />
+            <Stat label="Intentos" value={totalAttempts} />
+            <Stat label="Pistas" value={totalHints} />
+            <Stat label="Tiempo" value={formatDuration(totalSeconds)} />
           </div>
         </div>
-      </header>
-
-      <div className="p-4 sm:p-6 lg:p-8">
-        <div className="grid gap-6 xl:grid-cols-[minmax(26rem,1.05fr)_minmax(22rem,.95fr)]">
-          <section className="min-w-0">
-            <div role="tablist" aria-label="Información del laboratorio" className="mb-3 flex gap-2">
-              <LabTab active={labTab === "observations"} controls="e3b-observations" onClick={() => setLabTab("observations")}>Esquema y observaciones</LabTab>
-              <LabTab active={labTab === "measurements"} controls="e3b-measurements" onClick={() => setLabTab("measurements")}>Mediciones</LabTab>
-            </div>
-            {labTab === "observations" ? (
-              <div id="e3b-observations" role="tabpanel" className="overflow-hidden rounded-2xl border border-line bg-night/30">
-                <Image src={`${PUBLIC_BASE_PATH}${asset.schematic.src}`} alt={asset.schematic.alt} width={1600} height={900} className="h-auto w-full" />
-                <ul className="space-y-2 border-t border-line p-4 text-xs leading-5 text-muted">
-                  <li>• El ESP32 ejecuta el programa y responde por serial.</li>
-                  <li>• El driver recibe alimentación lógica y de potencia.</li>
-                  <li>• El motor no gira al aplicar la orden de avance.</li>
-                </ul>
-              </div>
-            ) : (
-              <div id="e3b-measurements" role="tabpanel" className="overflow-hidden rounded-2xl border border-line bg-night/30">
-                <Image src={`${PUBLIC_BASE_PATH}${asset.measurements.src}`} alt={asset.measurements.alt} width={1600} height={900} className="h-auto w-full" />
-                <dl className="grid grid-cols-2 gap-2 border-t border-line p-4 sm:grid-cols-3">
-                  {E3B_MEASUREMENTS.map((item) => <div key={item.id} className="rounded-xl border border-line bg-surface/40 p-3"><dt className="text-[10px] leading-4 text-muted">{item.label}</dt><dd className="mt-1 text-sm font-semibold text-ink">{item.value}</dd></div>)}
-                </dl>
-              </div>
-            )}
-            <p className="mt-3 text-xs leading-5 text-muted">El diagrama usa el mismo estilo para todas las conexiones: la respuesta no está señalada por color.</p>
-          </section>
-
-          <section className="space-y-4">
-            <p className="text-sm leading-6 text-muted">{E3B_CHALLENGE.steps[STEP_ID].statement}</p>
-            <OptionGroup legend="¿Cuál es la causa raíz más consistente?" name="e3b-cause" options={E3B_CAUSE_OPTIONS} value={draft.causeOptionId ?? ""} disabled={readOnly || solved} onChange={(value) => changeDraft({ causeOptionId: value })} />
-            <OptionGroup legend="¿Qué intervención corrige esa causa?" name="e3b-correction" options={E3B_CORRECTION_OPTIONS} value={draft.correctionOptionId ?? ""} disabled={readOnly || solved} onChange={(value) => changeDraft({ correctionOptionId: value })} />
-            <label className="block rounded-2xl border border-line bg-night/25 p-4">
-              <span className="text-sm font-semibold text-ink">Explica tu diagnóstico</span>
-              <span className="mt-1 block text-xs leading-5 text-muted">Conecta síntomas, mediciones, causa y corrección. Mínimo {minimumCharacters} caracteres.</span>
-              <textarea value={draft.explanation} disabled={readOnly || solved} rows={6} maxLength={2000} onChange={(event) => changeDraft({ explanation: event.target.value })} className="mt-3 w-full rounded-xl border border-line bg-night/45 p-3 text-sm leading-6 text-ink outline-none focus:border-cyan/50 disabled:opacity-70" />
-              <span className="mt-1 block text-right text-[11px] text-muted">{draft.explanation.trim().length}/{minimumCharacters} mínimo</span>
-            </label>
-          </section>
+        <div className="mt-5 h-1.5 overflow-hidden rounded-full bg-white/10" aria-hidden="true">
+          <div className="h-full rounded-full bg-cyan transition-[width] duration-500" style={{ width: `${(completedCount / E3B_STEP_IDS.length) * 100}%` }} />
         </div>
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+          <nav aria-label="Pasos del laboratorio" className="flex flex-wrap gap-2">
+            {E3B_STEP_IDS.map((stepId, index) => {
+              const solved = isSolved(progress.steps[stepId]);
+              const enabled = canVisit(progress, stepId, readOnly);
+              return (
+                <button
+                  key={stepId}
+                  type="button"
+                  disabled={!enabled}
+                  aria-current={stepId === currentStepId ? "step" : undefined}
+                  onClick={() => goToStep(stepId)}
+                  className={`min-h-10 rounded-xl border px-3 text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan ${stepId === currentStepId ? "border-cyan/50 bg-cyan/15 text-ink" : solved ? "border-ok/25 bg-ok/10 text-ok" : enabled ? "border-line bg-surface/45 text-muted hover:text-ink" : "cursor-not-allowed border-line bg-surface/20 text-muted/45"}`}
+                >
+                  {solved ? "✓ " : ""}{index + 1}. {stepTitle(stepId)}
+                </button>
+              );
+            })}
+          </nav>
+          <p role="status" className="text-xs text-muted">{saveState === "saving" ? "Guardando…" : "Guardado en este dispositivo"}</p>
+        </div>
+      </div>
 
-        {stepProgress.revealedHints > 0 && <aside className="mt-5 rounded-2xl border border-cyan/25 bg-cyan/[.07] p-4 text-sm leading-6 text-ice"><span className="font-semibold text-cyan">Pista:</span> {E3B_CHALLENGE.steps[STEP_ID].hints[0]}</aside>}
-        {evaluation && (
-          <section role="status" className={`mt-5 rounded-2xl border p-4 ${evaluation.isComplete ? "border-ok/30 bg-ok/[.07]" : "border-danger/30 bg-danger/[.07]"}`}>
-            <p className={`text-sm font-semibold ${evaluation.isComplete ? "text-ok" : "text-ink"}`}>{evaluation.feedback}</p>
-            <ul className="mt-2 space-y-1 text-xs leading-5 text-muted">{evaluation.items.map((item) => <li key={item.id}>{item.feedback}</li>)}</ul>
-          </section>
+      <div className="p-4 sm:p-7">
+        <div className="flex flex-wrap items-center gap-3">
+          <Badge>{stepContent.badge}</Badge>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">{stepContent.eyebrow}</p>
+        </div>
+        <h3 ref={headingRef} tabIndex={-1} className="mt-2 font-heading text-xl font-bold outline-none sm:text-2xl">
+          {stepContent.title}
+        </h3>
+        {currentStepId === "simulate" && (
+          <div role="alert" className="mt-3 rounded-2xl border border-amber-300/30 bg-amber-300/[0.07] p-4">
+            <p className="text-sm font-bold text-amber-100">Importante</p>
+            <p className="mt-1 text-xs leading-5 text-amber-100/90">{E3B_CHALLENGE.steps.simulate.warning}</p>
+          </div>
         )}
 
-        <footer className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-5">
-          <button type="button" onClick={revealHint} disabled={readOnly || solved || stepProgress.revealedHints > 0} className="min-h-11 rounded-xl border border-line px-4 text-xs font-semibold text-muted hover:border-cyan/30 hover:text-cyan focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan disabled:opacity-45">{stepProgress.revealedHints ? "Pista consultada" : "Ver pista"}</button>
-          {!solved && !readOnly ? <button type="button" onClick={submit} disabled={!draftReady} className="min-h-11 rounded-xl bg-gradient-to-r from-action to-tech px-5 text-sm font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan disabled:cursor-not-allowed disabled:opacity-45">Comprobar diagnóstico</button> : <span className="inline-flex min-h-11 items-center rounded-xl border border-ok/30 bg-ok/10 px-4 text-sm font-semibold text-ok">Diagnóstico registrado</span>}
-        </footer>
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-muted">{stepContent.statement}</p>
+
+        {currentStepId === "explore" ? (
+          <ExploreStep
+            draft={currentDraft as E3BExploreSubmission}
+            disabled={readOnly || currentSolved}
+            onChange={changeDraft}
+          />
+        ) : currentStepId === "simulate" ? (
+          <SimulateStep
+            draft={currentDraft as E3BSimulateSubmission}
+            disabled={readOnly || currentSolved}
+            onChange={changeDraft}
+          />
+        ) : currentStepId === "test" ? (
+          <TestStep
+            draft={currentDraft as E3BTestSubmission}
+            disabled={readOnly || currentSolved}
+            onChange={changeDraft}
+          />
+        ) : (
+          <ReflectStep
+            draft={currentDraft as E3BReflectSubmission}
+            disabled={readOnly || currentSolved}
+            onChange={changeDraft}
+          />
+        )}
+
+        {hints.length > 0 && (
+          <HintPanel
+            hints={hints}
+            revealed={currentStepProgress.revealedHints}
+            disabled={readOnly || currentSolved}
+            onReveal={revealHint}
+          />
+        )}
+        {currentValidation && <ValidationBanner validation={currentValidation} />}
+
+        <div className="mt-6 flex flex-col-reverse gap-3 border-t border-line pt-5 sm:flex-row sm:items-center sm:justify-between">
+          <button
+            type="button"
+            disabled={E3B_STEP_IDS.indexOf(currentStepId) === 0}
+            onClick={() => goToStep(E3B_STEP_IDS[E3B_STEP_IDS.indexOf(currentStepId) - 1])}
+            className="min-h-11 rounded-xl border border-line px-4 text-sm font-semibold text-muted hover:text-ink disabled:cursor-not-allowed disabled:opacity-35"
+          >
+            Paso anterior
+          </button>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            {!readOnly && !currentSolved && (
+              <button
+                type="button"
+                onClick={submitStep}
+                className="min-h-11 rounded-xl bg-action px-5 text-sm font-bold text-white transition hover:bg-tech focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan"
+              >
+                Registrar paso
+              </button>
+            )}
+            {currentSolved && E3B_STEP_IDS.indexOf(currentStepId) < E3B_STEP_IDS.length - 1 && (
+              <button type="button" onClick={() => goToStep(E3B_STEP_IDS[E3B_STEP_IDS.indexOf(currentStepId) + 1])} className="min-h-11 rounded-xl bg-action px-5 text-sm font-bold text-white hover:bg-tech focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan">
+                Continuar al siguiente paso
+              </button>
+            )}
+          </div>
+        </div>
         <p className="sr-only" aria-live="polite">{announcement}</p>
       </div>
-    </article>
+    </section>
   );
 }
 
-function LabTab({ active, controls, onClick, children }: { active: boolean; controls: string; onClick: () => void; children: React.ReactNode }) {
-  return <button type="button" role="tab" aria-selected={active} aria-controls={controls} tabIndex={active ? 0 : -1} onClick={onClick} className={`min-h-10 rounded-xl border px-3 text-xs font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan ${active ? "border-cyan/40 bg-cyan/10 text-cyan" : "border-line bg-night/25 text-muted"}`}>{children}</button>;
+function ExploreStep({
+  draft,
+  disabled,
+  onChange,
+}: {
+  draft: E3BExploreSubmission;
+  disabled: boolean;
+  onChange: (draft: E3BExploreSubmission) => void;
+}) {
+  const updateSimulator = (id: E3BSimulatorEntry["id"], patch: Partial<E3BSimulatorEntry>) => {
+    onChange({
+      ...draft,
+      simulators: draft.simulators.map((simulator) => (simulator.id === id ? { ...simulator, ...patch } : simulator)),
+    });
+  };
+
+  return (
+    <div className="mt-6 space-y-5">
+      <div className="grid gap-4 lg:grid-cols-3">
+        {draft.simulators.map((simulator, index) => (
+          <div key={simulator.id} className="rounded-2xl border border-line bg-surface/25 p-4 sm:p-5">
+            <p className="text-xs font-bold uppercase tracking-[0.12em] text-cyan">Simulador {index + 1}</p>
+            <MiniField
+              label="Nombre"
+              value={simulator.name}
+              disabled={disabled}
+              placeholder="Ej. Tinkercad Circuits"
+              onChange={(value) => updateSimulator(simulator.id, { name: value })}
+            />
+            <MiniTextArea label="¿Qué permite simular?" value={simulator.whatCanSimulate} disabled={disabled} onChange={(value) => updateSimulator(simulator.id, { whatCanSimulate: value })} />
+            <MiniTextArea label="Principal ventaja" value={simulator.advantage} disabled={disabled} onChange={(value) => updateSimulator(simulator.id, { advantage: value })} />
+            <MiniTextArea label="Una limitación" value={simulator.limitation} disabled={disabled} onChange={(value) => updateSimulator(simulator.id, { limitation: value })} />
+            <MiniTextArea label="¿En qué proyecto lo usarías?" value={simulator.useCase} disabled={disabled} onChange={(value) => updateSimulator(simulator.id, { useCase: value })} />
+          </div>
+        ))}
+      </div>
+      <div className="rounded-2xl border border-line bg-night/25 p-4 sm:p-5">
+        <MiniField
+          label="Si tuvieras que simular la electrónica de un pequeño sistema robótico, ¿cuál de los tres escogerías?"
+          value={draft.selectedSimulator}
+          disabled={disabled}
+          placeholder="Nombre del simulador elegido"
+          onChange={(value) => onChange({ ...draft, selectedSimulator: value })}
+        />
+        <div className="mt-4">
+          <MiniTextArea label="¿Por qué?" value={draft.selectionJustification} disabled={disabled} rows={4} onChange={(value) => onChange({ ...draft, selectionJustification: value })} />
+          <CharCount value={draft.selectionJustification} min={E3B_MINIMUMS.selectionJustification} />
+        </div>
+      </div>
+    </div>
+  );
 }
 
-function OptionGroup({ legend, name, options, value, disabled, onChange }: { legend: string; name: string; options: readonly { id: string; label: string }[]; value: string; disabled: boolean; onChange: (id: string) => void }) {
-  return <fieldset disabled={disabled} className="rounded-2xl border border-line bg-night/25 p-4"><legend className="sr-only">{legend}</legend><p aria-hidden="true" className="text-sm font-semibold leading-6 text-ink">{legend}</p><div className="mt-3 space-y-2">{options.map((option) => <label key={option.id} className={`flex cursor-pointer gap-3 rounded-xl border p-3 text-xs leading-5 ${value === option.id ? "border-cyan/40 bg-cyan/10 text-ink" : "border-line bg-surface/35 text-muted"}`}><input type="radio" name={name} checked={value === option.id} onChange={() => onChange(option.id)} className="mt-1 accent-[#84b6d7]" /><span>{option.label}</span></label>)}</div></fieldset>;
+function SimulateStep({
+  draft,
+  disabled,
+  onChange,
+}: {
+  draft: E3BSimulateSubmission;
+  disabled: boolean;
+  onChange: (draft: E3BSimulateSubmission) => void;
+}) {
+  const toggleSharedVideoState = (stateId: E3BMotorStateId) => {
+    const next = draft.sharedVideoStateIds.includes(stateId)
+      ? draft.sharedVideoStateIds.filter((id) => id !== stateId)
+      : [...draft.sharedVideoStateIds, stateId];
+    onChange({ ...draft, sharedVideoStateIds: next });
+  };
+
+  return (
+    <div className="mt-6 space-y-5">
+      <div className="rounded-2xl border border-line bg-night/25 p-4 sm:p-5">
+        <MiniField label="¿Qué simulador utilizaste?" value={draft.simulatorUsed} disabled={disabled} onChange={(value) => onChange({ ...draft, simulatorUsed: value })} />
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <MiniField label="Microcontrolador (opcional)" value={draft.microcontroller} disabled={disabled} onChange={(value) => onChange({ ...draft, microcontroller: value })} />
+          <MiniField label="Driver de motores (opcional)" value={draft.motorDriver} disabled={disabled} onChange={(value) => onChange({ ...draft, motorDriver: value })} />
+          <MiniField label="Tipo de motor (opcional)" value={draft.motorType} disabled={disabled} onChange={(value) => onChange({ ...draft, motorType: value })} />
+          <MiniField label="Fuente de alimentación (opcional)" value={draft.powerSource} disabled={disabled} onChange={(value) => onChange({ ...draft, powerSource: value })} />
+        </div>
+      </div>
+
+      <LocalEvidenceUploader
+        nodeId="E3B"
+        fieldId="simulate-overview"
+        label="Evidencia general"
+        description="Sube una captura donde se vean claramente los componentes electrónicos de tu simulación."
+        accept=".png,.jpg,.jpeg,.pdf,image/png,image/jpeg,application/pdf"
+        value={[...draft.overviewFiles]}
+        onChange={(files) => onChange({ ...draft, overviewFiles: files })}
+        disabled={disabled}
+        required
+      />
+
+      <CodeBlock
+        fieldId="simulate-code"
+        codeText={draft.codeText}
+        codeFiles={draft.codeFiles}
+        disabled={disabled}
+        onTextChange={(value) => onChange({ ...draft, codeText: value })}
+        onFilesChange={(files) => onChange({ ...draft, codeFiles: files })}
+      />
+
+      <div className="rounded-2xl border border-line bg-night/25 p-4 sm:p-5">
+        <h4 className="text-sm font-semibold text-ink">Evidencia de los cuatro estados</h4>
+        <p className="mt-1 text-xs leading-5 text-muted">Sube evidencia de cada estado por separado, o un único video corto que los cubra todos y márcalo abajo.</p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          {E3B_MOTOR_STATES.map((state) => (
+            <div key={state.id} className="rounded-xl border border-line bg-surface/25 p-3">
+              <p className="text-xs font-semibold text-ink">{state.title}</p>
+              <p className="mt-1 text-[11px] leading-4 text-muted">{state.description}</p>
+              <div className="mt-2">
+                <LocalEvidenceUploader
+                  nodeId="E3B"
+                  fieldId={`state-${state.id}`}
+                  label="Evidencia"
+                  description="Foto, captura, video o PDF de este estado."
+                  accept="image/*,video/*,application/pdf,.pdf"
+                  value={[...(draft.stateFiles[state.id] ?? [])]}
+                  onChange={(files) => onChange({ ...draft, stateFiles: { ...draft.stateFiles, [state.id]: files } })}
+                  disabled={disabled}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="mt-4 rounded-xl border border-line bg-surface/15 p-3">
+          <p className="text-xs font-semibold text-ink">Alternativa: un solo video para varios estados</p>
+          <div className="mt-2">
+            <LocalEvidenceUploader
+              nodeId="E3B"
+              fieldId="state-shared-video"
+              label="Video compartido (opcional)"
+              description="Si un solo video cubre varios estados, súbelo aquí y marca cuáles."
+              accept="video/*"
+              value={[...draft.sharedVideoFiles]}
+              onChange={(files) => onChange({ ...draft, sharedVideoFiles: files })}
+              disabled={disabled}
+            />
+          </div>
+          {draft.sharedVideoFiles.length > 0 && (
+            <fieldset disabled={disabled} className="mt-3 flex flex-wrap gap-2">
+              <legend className="mb-2 text-[11px] text-muted">¿Qué estados demuestra este video?</legend>
+              {E3B_MOTOR_STATES.map((state) => (
+                <label key={state.id} className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-[11px] ${draft.sharedVideoStateIds.includes(state.id) ? "border-cyan/40 bg-cyan/10 text-ink" : "border-line text-muted"}`}>
+                  <input type="checkbox" checked={draft.sharedVideoStateIds.includes(state.id)} onChange={() => toggleSharedVideoState(state.id)} className="h-3.5 w-3.5 accent-cyan" />
+                  {state.title}
+                </label>
+              ))}
+            </fieldset>
+          )}
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-line bg-night/25 p-4 sm:p-5">
+        <MiniTextArea
+          label="¿Por qué utilizaste un driver entre el microcontrolador y los motores, en lugar de conectarlos directamente?"
+          value={draft.driverExplanation}
+          disabled={disabled}
+          rows={5}
+          onChange={(value) => onChange({ ...draft, driverExplanation: value })}
+        />
+        <CharCount value={draft.driverExplanation} min={E3B_MINIMUMS.driverExplanation} />
+      </div>
+    </div>
+  );
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
-  return <div className="rounded-xl border border-line bg-night/35 px-3 py-2 text-center"><strong className="block text-sm text-ink">{value}</strong><span className="text-muted">{label}</span></div>;
+function TestStep({
+  draft,
+  disabled,
+  onChange,
+}: {
+  draft: E3BTestSubmission;
+  disabled: boolean;
+  onChange: (draft: E3BTestSubmission) => void;
+}) {
+  const updateCondition = (id: E3BCondition["id"], patch: Partial<E3BCondition>) => {
+    onChange({ ...draft, conditions: draft.conditions.map((condition) => (condition.id === id ? { ...condition, ...patch } : condition)) });
+  };
+  const updateScenario = (id: E3BScenario["id"], patch: Partial<E3BScenario>) => {
+    onChange({ ...draft, scenarios: draft.scenarios.map((scenario) => (scenario.id === id ? { ...scenario, ...patch } : scenario)) });
+  };
+  const conditionLabels = ["Condición 1", "Condición 2", "Condición 3 · Opcional"];
+  const scenarioLabels = ["Escenario A", "Escenario B", "Escenario C · Opcional"];
+
+  return (
+    <div className="mt-6 space-y-5">
+      <div className="grid gap-4 rounded-2xl border border-line bg-night/25 p-4 sm:grid-cols-2 sm:p-5">
+        <MiniField label="¿Qué simulador utilizaste?" value={draft.simulatorUsed} disabled={disabled} onChange={(value) => onChange({ ...draft, simulatorUsed: value })} />
+        <MiniField label="¿Qué sensor utilizaste?" value={draft.sensorUsed} disabled={disabled} onChange={(value) => onChange({ ...draft, sensorUsed: value })} />
+      </div>
+
+      <LocalEvidenceUploader
+        nodeId="E3B"
+        fieldId="test-overview"
+        label="Captura general"
+        description="Sube una captura general de la simulación con el sensor integrado."
+        accept=".png,.jpg,.jpeg,.pdf,image/png,image/jpeg,application/pdf"
+        value={[...draft.overviewFiles]}
+        onChange={(files) => onChange({ ...draft, overviewFiles: files })}
+        disabled={disabled}
+        required
+      />
+
+      <CodeBlock
+        fieldId="test-code"
+        codeText={draft.codeText}
+        codeFiles={draft.codeFiles}
+        disabled={disabled}
+        onTextChange={(value) => onChange({ ...draft, codeText: value })}
+        onFilesChange={(files) => onChange({ ...draft, codeFiles: files })}
+      />
+
+      <div className="rounded-2xl border border-line bg-night/25 p-4 sm:p-5">
+        <h4 className="text-sm font-semibold text-ink">Define el comportamiento esperado</h4>
+        <p className="mt-1 text-xs leading-5 text-muted">Antes de subir evidencia, declara qué esperas que ocurra en cada condición del sensor.</p>
+        <div className="mt-4 grid gap-3 lg:grid-cols-3">
+          {draft.conditions.map((condition, index) => (
+            <div key={condition.id} className="rounded-xl border border-line bg-surface/25 p-3">
+              <p className="text-xs font-bold uppercase tracking-[0.1em] text-cyan">{conditionLabels[index]}</p>
+              <MiniTextArea label="Condición del sensor" value={condition.sensorCondition} disabled={disabled} rows={3} onChange={(value) => updateCondition(condition.id, { sensorCondition: value })} />
+              <MiniTextArea label="Comportamiento de los motores" value={condition.motorBehavior} disabled={disabled} rows={3} onChange={(value) => updateCondition(condition.id, { motorBehavior: value })} />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-line bg-night/25 p-4 sm:p-5">
+        <h4 className="text-sm font-semibold text-ink">Pon a prueba tu sistema</h4>
+        <p className="mt-1 text-xs leading-5 text-muted">Modifica la entrada del sensor y demuestra que los motores responden de acuerdo con las reglas que definiste.</p>
+        <div className="mt-4 grid gap-3 lg:grid-cols-3">
+          {draft.scenarios.map((scenario, index) => (
+            <div key={scenario.id} className="rounded-xl border border-line bg-surface/25 p-3">
+              <p className="text-xs font-bold uppercase tracking-[0.1em] text-cyan">{scenarioLabels[index]}</p>
+              <MiniField label="Valor/estado del sensor" value={scenario.sensorValue} disabled={disabled} onChange={(value) => updateScenario(scenario.id, { sensorValue: value })} />
+              <MiniTextArea label="Comportamiento observado" value={scenario.observedBehavior} disabled={disabled} rows={3} onChange={(value) => updateScenario(scenario.id, { observedBehavior: value })} />
+              <div className="mt-3">
+                <LocalEvidenceUploader
+                  nodeId="E3B"
+                  fieldId={scenario.id}
+                  label="Evidencia"
+                  description="Foto, captura, video o PDF de este escenario."
+                  accept="image/*,video/*,application/pdf,.pdf"
+                  value={[...scenario.files]}
+                  onChange={(files) => updateScenario(scenario.id, { files })}
+                  disabled={disabled}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-line bg-night/25 p-4 sm:p-5">
+        <MiniTextArea
+          label="Explica con tus palabras cómo viaja la información desde el sensor hasta producir un cambio en los motores."
+          value={draft.informationFlowExplanation}
+          disabled={disabled}
+          rows={5}
+          onChange={(value) => onChange({ ...draft, informationFlowExplanation: value })}
+        />
+        <CharCount value={draft.informationFlowExplanation} min={E3B_MINIMUMS.informationFlowExplanation} />
+      </div>
+    </div>
+  );
+}
+
+function ReflectStep({
+  draft,
+  disabled,
+  onChange,
+}: {
+  draft: E3BReflectSubmission;
+  disabled: boolean;
+  onChange: (draft: E3BReflectSubmission) => void;
+}) {
+  return (
+    <div className="mt-6 space-y-5">
+      <div className="rounded-2xl border border-line bg-night/25 p-4 sm:p-5">
+        <MiniTextArea
+          label="¿Qué ventaja encuentras en simular un sistema electrónico antes de construirlo físicamente?"
+          value={draft.simulationAdvantage}
+          disabled={disabled}
+          rows={5}
+          onChange={(value) => onChange({ ...draft, simulationAdvantage: value })}
+        />
+        <CharCount value={draft.simulationAdvantage} min={E3B_MINIMUMS.reflectionAnswer} />
+      </div>
+      <div className="rounded-2xl border border-line bg-night/25 p-4 sm:p-5">
+        <MiniTextArea
+          label="¿Qué crees que podría comportarse diferente cuando lleves esta simulación al hardware real?"
+          value={draft.realWorldDifference}
+          disabled={disabled}
+          rows={5}
+          onChange={(value) => onChange({ ...draft, realWorldDifference: value })}
+        />
+        <CharCount value={draft.realWorldDifference} min={E3B_MINIMUMS.reflectionAnswer} />
+      </div>
+    </div>
+  );
+}
+
+function CodeBlock({
+  fieldId,
+  codeText,
+  codeFiles,
+  disabled,
+  onTextChange,
+  onFilesChange,
+}: {
+  fieldId: string;
+  codeText: string;
+  codeFiles: readonly LocalEvidenceFile[];
+  disabled: boolean;
+  onTextChange: (value: string) => void;
+  onFilesChange: (files: LocalEvidenceFile[]) => void;
+}) {
+  return (
+    <div className="rounded-2xl border border-line bg-night/25 p-4 sm:p-5">
+      <h4 className="text-sm font-semibold text-ink">Código</h4>
+      <p className="mt-1 text-xs leading-5 text-muted">Pega tu código o adjunta un archivo. Con uno de los dos es suficiente.</p>
+      <textarea
+        value={codeText}
+        disabled={disabled}
+        rows={8}
+        spellCheck={false}
+        onChange={(event) => onTextChange(event.target.value)}
+        className="mt-3 w-full resize-y rounded-xl border border-line bg-[#04131d] p-3 font-mono text-xs leading-5 text-[#8fe8ff] outline-none focus:border-cyan/50 disabled:opacity-70"
+        placeholder="// Pega aquí tu código…"
+      />
+      <div className="mt-3">
+        <LocalEvidenceUploader
+          nodeId="E3B"
+          fieldId={fieldId}
+          label="Archivo de código (opcional)"
+          description="Sube un .ino, .py, .cpp, .txt u otro archivo de código."
+          accept=".ino,.cpp,.c,.py,.txt,.zip,text/*,application/zip"
+          value={[...codeFiles]}
+          onChange={onFilesChange}
+          multiple
+          maxFiles={3}
+          disabled={disabled}
+        />
+      </div>
+    </div>
+  );
+}
+
+function MiniField({
+  label,
+  value,
+  disabled,
+  placeholder,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  disabled: boolean;
+  placeholder?: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="mt-3 block text-xs font-semibold text-ink first:mt-0">
+      {label}
+      <input
+        value={value}
+        disabled={disabled}
+        placeholder={placeholder}
+        onChange={(event) => onChange(event.target.value)}
+        className="mt-1 min-h-10 w-full rounded-lg border border-line bg-night/45 px-3 text-sm font-normal text-ink outline-none placeholder:text-muted/45 focus:border-cyan/50 disabled:opacity-70"
+      />
+    </label>
+  );
+}
+
+function MiniTextArea({
+  label,
+  value,
+  disabled,
+  rows = 3,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  disabled: boolean;
+  rows?: number;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="mt-3 block text-xs font-semibold text-ink first:mt-0">
+      {label}
+      <textarea
+        value={value}
+        disabled={disabled}
+        rows={rows}
+        onChange={(event) => onChange(event.target.value)}
+        className="mt-1 w-full resize-y rounded-lg border border-line bg-night/45 p-2.5 text-xs font-normal leading-5 text-ink outline-none focus:border-cyan/50 disabled:opacity-70"
+      />
+    </label>
+  );
+}
+
+function CharCount({ value, min }: { value: string; min: number }) {
+  const remaining = Math.max(0, min - value.trim().length);
+  return (
+    <p className={`mt-2 text-right text-xs ${remaining === 0 ? "text-ok" : "text-muted"}`}>
+      {remaining === 0 ? "Extensión mínima cumplida" : `Faltan ${remaining} caracteres`}
+    </p>
+  );
+}
+
+function Badge({ children }: { children: ReactNode }) {
+  return (
+    <span className="inline-flex items-center rounded-full border border-cyan/35 bg-cyan/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-cyan">
+      {children}
+    </span>
+  );
+}
+
+function HintPanel({ hints, revealed, disabled, onReveal }: { hints: readonly string[]; revealed: number; disabled: boolean; onReveal: () => void }) {
+  return (
+    <aside className="mt-6 rounded-2xl border border-amber-300/20 bg-amber-300/[0.04] p-4 sm:p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h4 className="text-sm font-semibold text-ink">¿Necesitas una pista?</h4>
+          <p className="mt-1 text-xs text-muted">Hay una pista disponible y su consulta queda registrada.</p>
+        </div>
+        {!disabled && revealed < hints.length && (
+          <button type="button" onClick={onReveal} className="min-h-10 rounded-xl border border-amber-300/30 px-4 text-xs font-bold text-amber-100 hover:bg-amber-300/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-300">
+            Ver pista
+          </button>
+        )}
+      </div>
+      {revealed > 0 && <p className="mt-4 rounded-xl border border-line bg-night/35 p-3 text-xs leading-5 text-muted">{hints[0]}</p>}
+    </aside>
+  );
+}
+
+function ValidationBanner({ validation }: { validation: E3BStepValidation }) {
+  return (
+    <div aria-live="polite" className={`mt-5 rounded-2xl border p-4 ${validation.isComplete ? "border-ok/30 bg-ok/[0.08]" : "border-amber-300/25 bg-amber-300/[0.06]"}`}>
+      <p className="text-sm font-bold text-ink">{validation.isComplete ? "Paso registrado" : "Aún faltan datos"}</p>
+      <p className="mt-1 text-xs leading-5 text-muted">{validation.feedback}</p>
+      {validation.errors.length > 0 && (
+        <ul className="mt-2 space-y-1 text-xs leading-5 text-amber-100/90">
+          {validation.errors.map((error) => (
+            <li key={error}>• {error}</li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <dl className="min-w-20 rounded-xl border border-line bg-night/25 px-3 py-2">
+      <dt className="text-[9px] font-bold uppercase tracking-[0.14em] text-muted">{label}</dt>
+      <dd className="mt-1 text-sm font-bold text-ink">{value}</dd>
+    </dl>
+  );
 }
 
 function createInitialProgress(saved?: NodeChallengeProgress): NodeChallengeProgress {
   const now = Date.now();
-  const validSaved = saved?.nodeId === "E3B" ? saved : undefined;
-  const savedStep = validSaved?.steps?.[STEP_ID];
-  const draft = normalizeDraft(savedStep?.draft);
-  const attempts = Array.isArray(savedStep?.attempts)
-    ? savedStep.attempts.filter((attempt) => attempt.nodeId === "E3B" && attempt.stepId === STEP_ID)
-    : [];
-  const solvedAt = typeof savedStep?.solvedAt === "number" && savedStep.solvedAt > 0 ? savedStep.solvedAt : null;
-  return {
+  const source = saved?.nodeId === "E3B" ? saved : undefined;
+  const steps = Object.fromEntries(
+    E3B_STEP_IDS.map((id) => [id, normalizeStep(id, source?.steps[id])])
+  ) as Record<string, ChallengeStepProgress>;
+  const firstIncomplete = E3B_STEP_IDS.find((id) => !isSolved(steps[id])) ?? E3B_STEP_IDS[E3B_STEP_IDS.length - 1];
+  const requested = isE3BStepId(source?.currentStepId) ? source.currentStepId : firstIncomplete;
+  const safeCurrent = E3B_STEP_IDS.indexOf(requested) <= E3B_STEP_IDS.indexOf(firstIncomplete) ? requested : firstIncomplete;
+  const allSolved = E3B_STEP_IDS.every((id) => isSolved(steps[id]));
+  const progress: NodeChallengeProgress = {
     nodeId: "E3B",
-    currentStepId: STEP_ID,
-    shuffleSeed: validSaved?.shuffleSeed ?? now,
-    startedAt: validSaved?.startedAt && validSaved.startedAt > 0 ? validSaved.startedAt : now,
-    updatedAt: validSaved?.updatedAt && validSaved.updatedAt > 0 ? validSaved.updatedAt : now,
-    completedAt: solvedAt ? validSaved?.completedAt ?? solvedAt : null,
-    steps: {
-      [STEP_ID]: {
-        draft: toJson(draft),
-        attempts,
-        revealedHints: Math.max(0, Math.min(1, savedStep?.revealedHints ?? 0)),
-        totalActiveSeconds: Math.max(0, savedStep?.totalActiveSeconds ?? 0),
-        solvedAt,
-      },
-    },
-    analytics: validSaved?.analytics ?? { lastEvent: "challenge_started" },
+    currentStepId: safeCurrent,
+    shuffleSeed: finite(source?.shuffleSeed) ?? now % 2_147_483_647,
+    startedAt: finite(source?.startedAt) ?? now,
+    updatedAt: finite(source?.updatedAt) ?? now,
+    completedAt: allSolved ? finite(source?.completedAt) ?? now : null,
+    steps,
+    analytics: source?.analytics ?? {},
+  };
+  return { ...progress, analytics: buildAnalytics(progress, "challenge_opened") };
+}
+
+function normalizeStep(id: E3BStepId, saved?: ChallengeStepProgress): ChallengeStepProgress {
+  const hintLimit = E3B_CHALLENGE.steps[id].hints.length;
+  return {
+    draft: toJsonValue(normalizeDraft(id, saved?.draft)),
+    attempts: Array.isArray(saved?.attempts) ? saved.attempts : [],
+    revealedHints: Math.min(hintLimit, Math.max(0, Math.floor(finite(saved?.revealedHints) ?? 0))),
+    totalActiveSeconds: Math.max(0, Math.floor(finite(saved?.totalActiveSeconds) ?? 0)),
+    solvedAt: positive(saved?.solvedAt),
   };
 }
 
-function normalizeDraft(raw: unknown): E3BSubmission {
-  if (!isRecord(raw)) return createE3BDraft();
+function normalizeDraft(id: E3BStepId, raw: unknown): E3BSubmission {
+  const fallback = createE3BDraft(id);
+  if (!isRecord(raw) || raw.stepId !== id) return fallback;
+
+  if (id === "explore") {
+    const fallbackExplore = fallback as E3BExploreSubmission;
+    const rawSimulators = Array.isArray(raw.simulators) ? raw.simulators : [];
+    const simulators = fallbackExplore.simulators.map((emptySimulator, index) => {
+      const rawSimulator = rawSimulators[index];
+      if (!isRecord(rawSimulator)) return emptySimulator;
+      return {
+        id: emptySimulator.id,
+        name: text(rawSimulator.name),
+        whatCanSimulate: text(rawSimulator.whatCanSimulate),
+        advantage: text(rawSimulator.advantage),
+        limitation: text(rawSimulator.limitation),
+        useCase: text(rawSimulator.useCase),
+      };
+    });
+    return {
+      stepId: "explore",
+      simulators,
+      selectedSimulator: text(raw.selectedSimulator),
+      selectionJustification: text(raw.selectionJustification),
+    };
+  }
+
+  if (id === "simulate") {
+    const stateFilesRaw = isRecord(raw.stateFiles) ? raw.stateFiles : {};
+    const stateFiles: Partial<Record<E3BMotorStateId, readonly LocalEvidenceFile[]>> = {};
+    for (const state of E3B_MOTOR_STATES) {
+      const files = normalizeFiles(stateFilesRaw[state.id]);
+      if (files.length > 0) stateFiles[state.id] = files;
+    }
+    const sharedVideoStateIds = Array.isArray(raw.sharedVideoStateIds)
+      ? raw.sharedVideoStateIds.filter((value): value is E3BMotorStateId =>
+          typeof value === "string" && E3B_MOTOR_STATES.some((state) => state.id === value)
+        )
+      : [];
+    return {
+      stepId: "simulate",
+      simulatorUsed: text(raw.simulatorUsed),
+      microcontroller: text(raw.microcontroller),
+      motorDriver: text(raw.motorDriver),
+      motorType: text(raw.motorType),
+      powerSource: text(raw.powerSource),
+      overviewFiles: normalizeFiles(raw.overviewFiles),
+      codeText: text(raw.codeText),
+      codeFiles: normalizeFiles(raw.codeFiles),
+      stateFiles,
+      sharedVideoFiles: normalizeFiles(raw.sharedVideoFiles),
+      sharedVideoStateIds,
+      driverExplanation: text(raw.driverExplanation),
+    };
+  }
+
+  if (id === "test") {
+    const fallbackTest = fallback as E3BTestSubmission;
+    const rawConditions = Array.isArray(raw.conditions) ? raw.conditions : [];
+    const conditions = fallbackTest.conditions.map((emptyCondition, index) => {
+      const rawCondition = rawConditions[index];
+      if (!isRecord(rawCondition)) return emptyCondition;
+      return {
+        id: emptyCondition.id,
+        sensorCondition: text(rawCondition.sensorCondition),
+        motorBehavior: text(rawCondition.motorBehavior),
+      };
+    });
+    const rawScenarios = Array.isArray(raw.scenarios) ? raw.scenarios : [];
+    const scenarios = fallbackTest.scenarios.map((emptyScenario, index) => {
+      const rawScenario = rawScenarios[index];
+      if (!isRecord(rawScenario)) return emptyScenario;
+      return {
+        id: emptyScenario.id,
+        sensorValue: text(rawScenario.sensorValue),
+        observedBehavior: text(rawScenario.observedBehavior),
+        files: normalizeFiles(rawScenario.files),
+      };
+    });
+    return {
+      stepId: "test",
+      simulatorUsed: text(raw.simulatorUsed),
+      sensorUsed: text(raw.sensorUsed),
+      overviewFiles: normalizeFiles(raw.overviewFiles),
+      codeText: text(raw.codeText),
+      codeFiles: normalizeFiles(raw.codeFiles),
+      conditions,
+      scenarios,
+      informationFlowExplanation: text(raw.informationFlowExplanation),
+    };
+  }
+
   return {
-    stepId: STEP_ID,
-    ...(typeof raw.causeOptionId === "string" ? { causeOptionId: raw.causeOptionId } : {}),
-    ...(typeof raw.correctionOptionId === "string" ? { correctionOptionId: raw.correctionOptionId } : {}),
-    explanation: typeof raw.explanation === "string" ? raw.explanation : "",
+    stepId: "reflect",
+    simulationAdvantage: text(raw.simulationAdvantage),
+    realWorldDifference: text(raw.realWorldDifference),
   };
+}
+
+function deriveValidations(progress: NodeChallengeProgress): ValidationMap {
+  const result: ValidationMap = {};
+  for (const id of E3B_STEP_IDS) {
+    const last = progress.steps[id].attempts.at(-1)?.answer;
+    if (!isRecord(last) || last.stepId !== id) continue;
+    try {
+      result[id] = validateE3B(normalizeDraft(id, last));
+    } catch {
+      /* Ignore malformed legacy attempts. */
+    }
+  }
+  return result;
+}
+
+function canVisit(progress: NodeChallengeProgress, target: E3BStepId, readOnly: boolean): boolean {
+  if (readOnly) return true;
+  const firstIncomplete = E3B_STEP_IDS.findIndex((id) => !isSolved(progress.steps[id]));
+  return firstIncomplete === -1 || E3B_STEP_IDS.indexOf(target) <= firstIncomplete;
+}
+
+function buildAnalytics(progress: NodeChallengeProgress, event: string): NodeChallengeProgress["analytics"] {
+  return {
+    ...progress.analytics,
+    attemptsTotal: E3B_STEP_IDS.reduce((sum, id) => sum + progress.steps[id].attempts.length, 0),
+    hintsTotal: E3B_STEP_IDS.reduce((sum, id) => sum + progress.steps[id].revealedHints, 0),
+    totalActiveSeconds: E3B_STEP_IDS.reduce((sum, id) => sum + progress.steps[id].totalActiveSeconds, 0),
+    solvedSteps: E3B_STEP_IDS.filter((id) => isSolved(progress.steps[id])).length,
+    currentStepOrder: E3B_STEP_IDS.indexOf(toStepId(progress.currentStepId)) + 1,
+    lastEvent: event,
+  };
+}
+
+function isSolved(step?: ChallengeStepProgress): boolean {
+  return positive(step?.solvedAt) !== null;
+}
+function positive(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : null;
+}
+function finite(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+function toStepId(value: unknown): E3BStepId {
+  return isE3BStepId(value) ? value : E3B_STEP_IDS[0];
+}
+function stepTitle(id: E3BStepId): string {
+  return E3B_CHALLENGE.steps[id].title;
 }
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-function hasSolved(step: ChallengeStepProgress): boolean {
-  return typeof step.solvedAt === "number" && Number.isFinite(step.solvedAt) && step.solvedAt > 0;
-}
-function toJson(value: unknown): JsonValue {
+function toJsonValue(value: unknown): JsonValue {
   return JSON.parse(JSON.stringify(value)) as JsonValue;
 }
-function formatTime(seconds: number): string {
-  const safe = Math.max(0, Math.floor(seconds));
-  return safe < 60 ? `${safe}s` : `${Math.floor(safe / 60)}m`;
+function formatDuration(seconds: number): string {
+  const minutes = Math.floor(seconds / 60);
+  return minutes ? `${minutes}m ${seconds % 60}s` : `${seconds}s`;
+}
+function normalizeFiles(value: unknown): LocalEvidenceFile[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (
+      !isRecord(item) ||
+      typeof item.id !== "string" ||
+      typeof item.nodeId !== "string" ||
+      typeof item.fieldId !== "string" ||
+      typeof item.name !== "string" ||
+      typeof item.mimeType !== "string" ||
+      typeof item.size !== "number" ||
+      typeof item.lastModified !== "number" ||
+      typeof item.storedAt !== "number"
+    ) {
+      return [];
+    }
+    return [
+      {
+        id: item.id,
+        nodeId: item.nodeId,
+        fieldId: item.fieldId,
+        name: item.name,
+        mimeType: item.mimeType,
+        size: item.size,
+        lastModified: item.lastModified,
+        storedAt: item.storedAt,
+      },
+    ];
+  });
+}
+function text(value: unknown): string {
+  return typeof value === "string" ? value : "";
 }
 
 export default E3BChallenge;

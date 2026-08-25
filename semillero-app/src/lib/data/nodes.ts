@@ -76,8 +76,8 @@ export const SKILL_NODES: SkillNodeDef[] = [
     "Diseña la arquitectura electrónica de un robot móvil: componentes, esquema propio y explicación del flujo funcional.", ["E1A", "E1B"]),
   n("E3A", "electronics", 3, -1, "Alimenta el robot", "profundizacion",
     "Dimensiona batería, reguladores y rieles de alimentación a partir de consumos nominales y corrientes pico.", ["E2"]),
-  n("E3B", "electronics", 3, 1, "Debuggea el hardware", "profundizacion",
-    "Explora un laboratorio visual, interpreta mediciones y diagnostica una falla de referencia común entre tierras.", ["E2"]),
+  n("E3B", "electronics", 3, 1, "Simula antes de construir", "profundizacion",
+    "Investiga simuladores de electrónica, controla dos motores por simulación y añade un sensor que cambie su comportamiento.", ["E2"]),
   n("E4", "electronics", 4, 0, "Electrónica libre", "libre",
     "Documenta un sistema electrónico propio para robótica y reúne su esquema, evidencias, código y reflexión final.", ["E3A", "E3B"]),
 
