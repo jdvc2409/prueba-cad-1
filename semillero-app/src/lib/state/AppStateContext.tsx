@@ -237,7 +237,7 @@ function normalizeStepProgress(
     attempts,
     revealedHints: Math.max(
       0,
-      Math.min(3, Math.trunc(finiteNonNegative(value.revealedHints)))
+      Math.min(1, Math.trunc(finiteNonNegative(value.revealedHints)))
     ),
     totalActiveSeconds: finiteNonNegative(value.totalActiveSeconds),
     solvedAt: isPositiveTimestamp(value.solvedAt)

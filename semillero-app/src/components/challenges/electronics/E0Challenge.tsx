@@ -243,7 +243,13 @@ export function E0Challenge({
   };
 
   const revealHint = () => {
-    if (readOnly || currentSolved || currentStepProgress.revealedHints >= 3) return;
+    if (
+      readOnly ||
+      currentSolved ||
+      currentStepProgress.revealedHints >= currentStep.hints.length
+    ) {
+      return;
+    }
 
     const nextHintNumber = currentStepProgress.revealedHints + 1;
     commit((current) => {
@@ -531,13 +537,7 @@ export function E0Challenge({
           </p>
         </header>
 
-        <div
-          className={
-            currentStepId === "symbols"
-              ? "space-y-6"
-              : "grid gap-6 xl:grid-cols-[minmax(19rem,0.85fr)_minmax(25rem,1.15fr)] xl:items-start"
-          }
-        >
+        <div className="space-y-6">
           {currentStepId !== "symbols" && <StepVisual step={currentStep} />}
 
           <div className="min-w-0">
@@ -751,10 +751,13 @@ function ChoiceSetForm({
             key={question.id}
             className="rounded-2xl border border-white/10 bg-white/[0.035] p-4 sm:p-5"
           >
-            <legend className="px-1 text-sm font-semibold leading-6 text-white">
+            <legend className="sr-only">
+              Pregunta {index + 1}: {question.prompt}
+            </legend>
+            <p className="text-sm font-semibold leading-6 text-white">
               <span className="mr-2 text-[#64D8F6]">{index + 1}.</span>
               {question.prompt}
-            </legend>
+            </p>
             <div className="mt-4 space-y-2.5">
               {options.map((option) => (
                 <ChoiceRow
@@ -811,9 +814,12 @@ function PolarityForm({
   return (
     <div className="space-y-4">
       <fieldset className="rounded-2xl border border-white/10 bg-white/[0.035] p-4 sm:p-5">
-        <legend className="px-1 text-sm font-semibold leading-6 text-white">
-          1. {multipleQuestion.prompt}
+        <legend className="sr-only">
+          Pregunta 1: {multipleQuestion.prompt}
         </legend>
+        <p className="text-sm font-semibold leading-6 text-white">
+          1. {multipleQuestion.prompt}
+        </p>
         <p className="mt-2 text-xs text-slate-400">Puedes elegir más de una opción.</p>
         <div className="mt-4 grid gap-2.5 sm:grid-cols-2">
           {multipleQuestion.options.map((option) => (
@@ -832,9 +838,12 @@ function PolarityForm({
       </fieldset>
 
       <fieldset className="rounded-2xl border border-white/10 bg-white/[0.035] p-4 sm:p-5">
-        <legend className="px-1 text-sm font-semibold leading-6 text-white">
-          2. {ledQuestion.prompt}
+        <legend className="sr-only">
+          Pregunta 2: {ledQuestion.prompt}
         </legend>
+        <p className="text-sm font-semibold leading-6 text-white">
+          2. {ledQuestion.prompt}
+        </p>
         <div className="mt-4 space-y-2.5">
           {getDeterministicChoiceOptions(ledQuestion.id, seed).map((option) => (
             <ChoiceRow
@@ -872,7 +881,7 @@ function OhmPowerForm({
   );
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
+    <div className="space-y-4">
       {questions.map((question, index) => {
         const isCurrent = question.quantity === "current";
         const answer = isCurrent ? draft.current : draft.power;
@@ -1146,7 +1155,7 @@ function StepVisual({ step }: { step: E0StepDefinition }) {
   if (step.id === "ohm-power") return <OhmPowerDiagram />;
 
   return (
-    <figure className="sticky top-0 overflow-hidden rounded-2xl border border-white/10 bg-[#04131d]">
+    <figure className="w-full overflow-hidden rounded-2xl border border-white/10 bg-[#04131d]">
       <Image
         src={step.asset.src}
         alt={step.asset.alt}
@@ -1156,7 +1165,7 @@ function StepVisual({ step }: { step: E0StepDefinition }) {
         className="h-auto w-full"
       />
       <figcaption className="border-t border-white/10 px-4 py-3 text-xs leading-5 text-slate-400">
-        Usa el diagrama como referencia y registra tus decisiones a la derecha.
+        Usa el diagrama como referencia y registra tus decisiones en las tarjetas de abajo.
       </figcaption>
     </figure>
   );
@@ -1164,7 +1173,7 @@ function StepVisual({ step }: { step: E0StepDefinition }) {
 
 function OhmPowerDiagram() {
   return (
-    <figure className="sticky top-0 overflow-hidden rounded-2xl border border-white/10 bg-[#071c29] p-5 sm:p-6">
+    <figure className="w-full overflow-hidden rounded-2xl border border-white/10 bg-[#071c29] p-5 sm:p-6">
       <div className="rounded-2xl border border-[#39C8F0]/20 bg-[#04131d] p-5">
         <div className="flex items-center justify-between gap-4">
           <div className="rounded-xl border border-[#0A84C7]/45 bg-[#0A84C7]/10 px-4 py-3 text-center">
@@ -1263,7 +1272,7 @@ function HintPanel({
             onClick={onReveal}
             className="min-h-10 rounded-xl border border-amber-300/25 bg-amber-300/[0.07] px-4 text-xs font-bold text-amber-100 transition hover:bg-amber-300/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-300"
           >
-            Ver pista {revealed + 1}
+            Ver pista
           </button>
         )}
       </div>
@@ -1406,12 +1415,15 @@ function normalizeStepProgress(
   stepId: E0StepId,
   saved?: ChallengeStepProgress
 ): ChallengeStepProgress {
+  const hintLimit =
+    E0_STEPS.find((step) => step.id === stepId)?.hints.length ?? 0;
+
   return {
     draft: toJsonValue(normalizeDraft(stepId, saved?.draft)),
     attempts: Array.isArray(saved?.attempts) ? saved.attempts : [],
     revealedHints:
       typeof saved?.revealedHints === "number"
-        ? Math.max(0, Math.min(3, Math.floor(saved.revealedHints)))
+        ? Math.max(0, Math.min(hintLimit, Math.floor(saved.revealedHints)))
         : 0,
     totalActiveSeconds:
       typeof saved?.totalActiveSeconds === "number"

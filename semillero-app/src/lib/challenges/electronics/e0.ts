@@ -132,7 +132,7 @@ export interface E0StepDefinition {
   readonly eyebrow: string;
   readonly statement: string;
   readonly asset: E0AssetDefinition;
-  readonly hints: readonly [string, string, string];
+  readonly hints: readonly [string];
   readonly questions: readonly E0QuestionDefinition[];
 }
 
@@ -540,8 +540,6 @@ export const E0_STEPS = [
     },
     hints: [
       "Compara el voltaje aplicado con el nominal o máximo de cada componente.",
-      "Demasiado voltaje puede dañar; muy poco puede impedir el funcionamiento normal.",
-      "A: falta limitar corriente. B: 3 V son insuficientes. C: 12 V exceden el máximo de 3.3 V.",
     ],
     questions: VOLTAGE_QUESTIONS,
   },
@@ -562,8 +560,6 @@ export const E0_STEPS = [
     },
     hints: [
       "La corriente indicada en una fuente es su capacidad máxima.",
-      "Con el voltaje adecuado, la carga determina cuánto consume.",
-      "300 mA es menor que 2 A; 4 A es mayor que 1 A.",
     ],
     questions: CURRENT_QUESTIONS,
   },
@@ -584,8 +580,6 @@ export const E0_STEPS = [
     },
     hints: [
       "Busca +/−, ánodo/cátodo o símbolos asimétricos.",
-      "LED, batería y capacitor electrolítico tienen terminales definidos; la resistencia común no.",
-      "Selecciona LED, batería y capacitor. Un LED invertido normalmente queda apagado.",
     ],
     questions: POLARITY_QUESTIONS,
   },
@@ -607,8 +601,6 @@ export const E0_STEPS = [
     },
     hints: [
       "Empieza con la Ley de Ohm: I = V/R.",
-      "Después usa P = V·I o P = V²/R.",
-      "I = 5/100 = 0.05 A = 50 mA; P = 5×0.05 = 0.25 W.",
     ],
     questions: OHM_POWER_QUESTIONS,
   },
@@ -630,8 +622,6 @@ export const E0_STEPS = [
     },
     hints: [
       "Busca flechas de luz, placas, contactos, tierra y bloques con pines.",
-      "El LED tiene flechas; el motor suele llevar una M; GND usa líneas decrecientes.",
-      "La batería usa placas larga/corta; el capacitor polarizado lleva + o placa curva; el microcontrolador tiene varios pines.",
     ],
     questions: [SYMBOL_MATCHING_QUESTION],
   },
