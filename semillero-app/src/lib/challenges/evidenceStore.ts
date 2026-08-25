@@ -1,0 +1,135 @@
+export interface LocalEvidenceFile {
+  id: string;
+  nodeId: string;
+  fieldId: string;
+  name: string;
+  mimeType: string;
+  size: number;
+  lastModified: number;
+  storedAt: number;
+}
+
+interface StoredEvidenceRecord extends LocalEvidenceFile {
+  blob: Blob;
+}
+
+const DATABASE_NAME = "semillero-electronics-evidence";
+const DATABASE_VERSION = 1;
+const STORE_NAME = "files";
+
+function requireIndexedDb(): IDBFactory {
+  if (typeof window === "undefined" || !window.indexedDB) {
+    throw new Error("El almacenamiento local de archivos no está disponible.");
+  }
+  return window.indexedDB;
+}
+
+function openDatabase(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = requireIndexedDb().open(DATABASE_NAME, DATABASE_VERSION);
+
+    request.onupgradeneeded = () => {
+      const database = request.result;
+      if (database.objectStoreNames.contains(STORE_NAME)) return;
+      const store = database.createObjectStore(STORE_NAME, { keyPath: "id" });
+      store.createIndex("nodeId", "nodeId", { unique: false });
+      store.createIndex("nodeField", ["nodeId", "fieldId"], { unique: false });
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () =>
+      reject(request.error ?? new Error("No fue posible abrir los archivos locales."));
+    request.onblocked = () =>
+      reject(new Error("Cierra otras pestañas de la prueba e inténtalo de nuevo."));
+  });
+}
+
+async function runTransaction<T>(
+  mode: IDBTransactionMode,
+  action: (store: IDBObjectStore) => IDBRequest<T>
+): Promise<T> {
+  const database = await openDatabase();
+
+  try {
+    return await new Promise<T>((resolve, reject) => {
+      const transaction = database.transaction(STORE_NAME, mode);
+      const request = action(transaction.objectStore(STORE_NAME));
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () =>
+        reject(request.error ?? new Error("No fue posible guardar el archivo."));
+      transaction.onabort = () =>
+        reject(transaction.error ?? new Error("El guardado local fue interrumpido."));
+    });
+  } finally {
+    database.close();
+  }
+}
+
+export async function storeEvidenceFile(
+  nodeId: string,
+  fieldId: string,
+  file: File
+): Promise<LocalEvidenceFile> {
+  const metadata: LocalEvidenceFile = {
+    id: crypto.randomUUID(),
+    nodeId,
+    fieldId,
+    name: file.name,
+    mimeType: file.type || "application/octet-stream",
+    size: file.size,
+    lastModified: file.lastModified,
+    storedAt: Date.now(),
+  };
+
+  const record: StoredEvidenceRecord = { ...metadata, blob: file };
+  await runTransaction<IDBValidKey>("readwrite", (store) => store.put(record));
+  return metadata;
+}
+
+export async function getEvidenceBlob(id: string): Promise<Blob | null> {
+  const result = await runTransaction<StoredEvidenceRecord | undefined>(
+    "readonly",
+    (store) => store.get(id)
+  );
+  return result?.blob instanceof Blob ? result.blob : null;
+}
+
+export async function removeEvidenceFile(id: string): Promise<void> {
+  await runTransaction<undefined>("readwrite", (store) => store.delete(id));
+}
+
+export async function removeNodeEvidence(nodeId: string): Promise<void> {
+  const database = await openDatabase();
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const transaction = database.transaction(STORE_NAME, "readwrite");
+      const store = transaction.objectStore(STORE_NAME);
+      const index = store.index("nodeId");
+      const cursorRequest = index.openKeyCursor(IDBKeyRange.only(nodeId));
+
+      cursorRequest.onsuccess = () => {
+        const cursor = cursorRequest.result;
+        if (!cursor) return;
+        store.delete(cursor.primaryKey);
+        cursor.continue();
+      };
+      cursorRequest.onerror = () => transaction.abort();
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () =>
+        reject(transaction.error ?? new Error("No fue posible limpiar los archivos."));
+      transaction.onabort = () =>
+        reject(transaction.error ?? new Error("La limpieza fue interrumpida."));
+    });
+  } finally {
+    database.close();
+  }
+}
+
+export async function clearAllEvidenceFiles(): Promise<void> {
+  await runTransaction<undefined>("readwrite", (store) => store.clear());
+}
+
+export function formatEvidenceSize(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "0 KB";
+  if (bytes < 1_048_576) return `${Math.max(1, Math.round(bytes / 1_024))} KB`;
+  return `${(bytes / 1_048_576).toFixed(bytes < 10_485_760 ? 1 : 0)} MB`;
+}

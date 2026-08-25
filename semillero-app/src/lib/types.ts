@@ -104,7 +104,7 @@ export interface NodeChallengeProgress {
 }
 
 export interface AppState {
-  schemaVersion: 2;
+  schemaVersion: 3;
   profile: CandidateProfile;
   introduction: IntroItem[];
   registrationStep: 1 | 2;

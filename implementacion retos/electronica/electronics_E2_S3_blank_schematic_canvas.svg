@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+<rect width="1600" height="900" fill="#071824"/>
+<defs>
+<style>
+.title{font:700 46px Arial,sans-serif;fill:#F5FAFD}
+.sub{font:400 23px Arial,sans-serif;fill:#9CB6C8}
+.cardTitle{font:700 27px Arial,sans-serif;fill:#F5FAFD}
+.body{font:400 21px Arial,sans-serif;fill:#F5FAFD}
+.small{font:400 18px Arial,sans-serif;fill:#9CB6C8}
+.label{font:700 18px Arial,sans-serif;fill:#39C8F0;letter-spacing:1.2px}
+.value{font:700 31px Arial,sans-serif;fill:#F5FAFD}
+.wire{stroke:#39C8F0;stroke-width:5;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.wire2{stroke:#F5FAFD;stroke-width:4;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.dim{stroke:#24516A;stroke-width:4;fill:none;stroke-linecap:round;stroke-linejoin:round}
+</style>
+</defs>
+<text x="90" y="90" class="label">E2 · LIENZO DE ESQUEMA</text><text x="90" y="148" class="title">Plantilla base</text><text x="90" y="192" class="sub">Canvas simplificado para construir el diagrama del sistema.</text><rect x="90" y="250" width="1420" height="560" rx="28" fill="#0D2534" stroke="#24516A" stroke-width="2"/><rect x="150" y="390" width="210" height="110" rx="18" fill="#102E41" stroke="#39C8F0" stroke-width="3"/><text x="255" y="455" text-anchor="middle" class="body">Sensores</text><rect x="500" y="390" width="240" height="110" rx="18" fill="#102E41" stroke="#F5FAFD" stroke-width="3"/><text x="620" y="455" text-anchor="middle" class="body">Microcontrolador</text><rect x="895" y="390" width="200" height="110" rx="18" fill="#102E41" stroke="#39C8F0" stroke-width="3"/><text x="995" y="455" text-anchor="middle" class="body">Driver</text><rect x="1240" y="390" width="200" height="110" rx="18" fill="#102E41" stroke="#39C8F0" stroke-width="3"/><text x="1340" y="455" text-anchor="middle" class="body">Actuadores</text><line x1="360" y1="445" x2="500" y2="445" class="wire"/><line x1="740" y1="445" x2="895" y2="445" class="wire"/><line x1="1095" y1="445" x2="1240" y2="445" class="wire"/><line x1="150" y1="665" x2="1440" y2="665" class="dim"/><text x="800" y="705" text-anchor="middle" class="small">GND común / retorno sugerido</text>
+</svg>

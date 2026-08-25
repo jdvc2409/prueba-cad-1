@@ -12,16 +12,26 @@ import {
 import type {
   AppState,
   CandidateProfile,
-  ChallengeAttempt,
-  ChallengeStepProgress,
   IntroItem,
-  JsonValue,
   NodeChallengeProgress,
   NodeStatus,
 } from "@/lib/types";
 import { canFinishJourney, computeStatus } from "@/lib/unlock";
 import { isValidCandidateProfile } from "@/lib/admissions";
-import { E0_STEP_IDS } from "@/lib/challenges/electronics/e0";
+import {
+  ELECTRONICS_CHALLENGE_NODE_IDS,
+  ELECTRONICS_CHALLENGE_PROGRESS,
+  getElectronicsChallengeProgressDefinition,
+  isElectronicsChallengeNodeId,
+} from "@/lib/challenges/electronics/registry";
+import {
+  hasCompletedChallenge,
+  isPositiveTimestamp,
+  mergeNodeChallengeProgress,
+  normalizeNodeChallengeProgress,
+} from "@/lib/challenges/progress";
+import { clearAllEvidenceFiles } from "@/lib/challenges/evidenceStore";
+import { nodeById } from "@/lib/data/nodes";
 
 const STORAGE_KEY = "semillero-app-state-v1";
 const SESSION_KEY = "semillero-session-active";
@@ -43,7 +53,7 @@ const emptyProfile: CandidateProfile = {
 };
 
 const defaultState: AppState = {
-  schemaVersion: 2,
+  schemaVersion: 3,
   profile: emptyProfile,
   introduction: [],
   registrationStep: 1,
@@ -94,20 +104,9 @@ const INTRO_TYPES = new Set<IntroItem["type"]>([
   "link",
 ]);
 const NODE_STATUSES = new Set<NodeStatus>(["locked", "available", "completed"]);
-const E0_STEP_ID_SET = new Set<string>(E0_STEP_IDS);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function isPositiveTimestamp(value: unknown): value is number {
-  return typeof value === "number" && Number.isFinite(value) && value > 0;
-}
-
-function finiteNonNegative(value: unknown, fallback = 0): number {
-  return typeof value === "number" && Number.isFinite(value) && value >= 0
-    ? value
-    : fallback;
 }
 
 function normalizeProfile(value: unknown): CandidateProfile {
@@ -129,164 +128,6 @@ function normalizeProfile(value: unknown): CandidateProfile {
     instagram: text("instagram"),
     consentData: source.consentData === true,
     consentFiles: source.consentFiles === true,
-  };
-}
-
-function normalizeJsonValue(value: unknown, depth = 0): JsonValue | undefined {
-  if (value === null || typeof value === "string" || typeof value === "boolean") {
-    return value;
-  }
-  if (typeof value === "number") return Number.isFinite(value) ? value : undefined;
-  if (depth >= 12) return undefined;
-  if (Array.isArray(value)) {
-    const normalized: JsonValue[] = [];
-    for (const item of value.slice(0, 1_000)) {
-      const safeItem = normalizeJsonValue(item, depth + 1);
-      if (safeItem !== undefined) normalized.push(safeItem);
-    }
-    return normalized;
-  }
-  if (!isRecord(value)) return undefined;
-
-  const normalized: Record<string, JsonValue> = {};
-  for (const [key, item] of Object.entries(value).slice(0, 1_000)) {
-    const safeItem = normalizeJsonValue(item, depth + 1);
-    if (safeItem !== undefined) normalized[key] = safeItem;
-  }
-  return normalized;
-}
-
-function normalizePrimitiveRecord(
-  value: unknown
-): Record<string, string | number | boolean> {
-  if (!isRecord(value)) return {};
-  const normalized: Record<string, string | number | boolean> = {};
-  for (const [key, item] of Object.entries(value)) {
-    if (
-      typeof item === "string" ||
-      typeof item === "boolean" ||
-      (typeof item === "number" && Number.isFinite(item))
-    ) {
-      normalized[key] = item;
-    }
-  }
-  return normalized;
-}
-
-function normalizeAttempt(
-  value: unknown,
-  stepId: string
-): ChallengeAttempt | null {
-  if (!isRecord(value)) return null;
-  const answer = normalizeJsonValue(value.answer);
-  if (
-    typeof value.id !== "string" ||
-    !value.id ||
-    value.nodeId !== "E0" ||
-    value.stepId !== stepId ||
-    typeof value.attemptNumber !== "number" ||
-    !Number.isSafeInteger(value.attemptNumber) ||
-    value.attemptNumber < 1 ||
-    !isPositiveTimestamp(value.startedAt) ||
-    !isPositiveTimestamp(value.submittedAt) ||
-    answer === undefined ||
-    !(
-      value.isCorrect === null ||
-      typeof value.isCorrect === "boolean"
-    )
-  ) {
-    return null;
-  }
-
-  const score =
-    typeof value.score === "number" && Number.isFinite(value.score)
-      ? value.score
-      : undefined;
-  return {
-    id: value.id,
-    nodeId: "E0",
-    stepId,
-    attemptNumber: Number(value.attemptNumber),
-    startedAt: value.startedAt,
-    submittedAt: value.submittedAt,
-    durationSeconds: finiteNonNegative(value.durationSeconds),
-    answer,
-    isCorrect: value.isCorrect,
-    hintsUsed: Math.max(0, Math.trunc(finiteNonNegative(value.hintsUsed))),
-    ...(score === undefined ? {} : { score }),
-    metadata: normalizePrimitiveRecord(value.metadata),
-  };
-}
-
-function normalizeStepProgress(
-  value: unknown,
-  stepId: string,
-  now: number
-): ChallengeStepProgress | null {
-  if (!isRecord(value)) return null;
-  const draft = normalizeJsonValue(value.draft);
-  const attempts = Array.isArray(value.attempts)
-    ? value.attempts
-        .map((attempt) => normalizeAttempt(attempt, stepId))
-        .filter((attempt): attempt is ChallengeAttempt => attempt !== null)
-        .sort((left, right) => left.submittedAt - right.submittedAt)
-    : [];
-
-  return {
-    draft: draft ?? null,
-    attempts,
-    revealedHints: Math.max(
-      0,
-      Math.min(1, Math.trunc(finiteNonNegative(value.revealedHints)))
-    ),
-    totalActiveSeconds: finiteNonNegative(value.totalActiveSeconds),
-    solvedAt: isPositiveTimestamp(value.solvedAt)
-      ? Math.min(value.solvedAt, now)
-      : null,
-  };
-}
-
-function normalizeE0Progress(
-  value: unknown,
-  now = Date.now()
-): NodeChallengeProgress | null {
-  if (!isRecord(value) || value.nodeId !== "E0" || !isRecord(value.steps)) {
-    return null;
-  }
-
-  const steps: Record<string, ChallengeStepProgress> = {};
-  for (const stepId of E0_STEP_IDS) {
-    const normalized = normalizeStepProgress(value.steps[stepId], stepId, now);
-    if (normalized) steps[stepId] = normalized;
-  }
-
-  const startedAt = isPositiveTimestamp(value.startedAt)
-    ? Math.min(value.startedAt, now)
-    : now;
-  const updatedAt = isPositiveTimestamp(value.updatedAt)
-    ? Math.min(value.updatedAt, now)
-    : startedAt;
-  const completedAt = isPositiveTimestamp(value.completedAt)
-    ? Math.min(value.completedAt, now)
-    : null;
-  const currentStepId =
-    typeof value.currentStepId === "string" && E0_STEP_ID_SET.has(value.currentStepId)
-      ? value.currentStepId
-      : E0_STEP_IDS.find((stepId) => !isPositiveTimestamp(steps[stepId]?.solvedAt)) ??
-        E0_STEP_IDS[0];
-
-  return {
-    nodeId: "E0",
-    currentStepId,
-    shuffleSeed:
-      typeof value.shuffleSeed === "number" && Number.isFinite(value.shuffleSeed)
-        ? Math.trunc(value.shuffleSeed)
-        : Math.trunc(now),
-    startedAt,
-    updatedAt,
-    completedAt,
-    steps,
-    analytics: normalizePrimitiveRecord(value.analytics),
   };
 }
 
@@ -336,68 +177,6 @@ function normalizeIntroduction(value: unknown): IntroItem[] {
   });
 }
 
-function mergeChallengeProgress(
-  current: NodeChallengeProgress | undefined,
-  incoming: NodeChallengeProgress
-): NodeChallengeProgress {
-  const now = Date.now();
-  const safeIncoming = normalizeE0Progress(incoming, now);
-  const safeCurrent = normalizeE0Progress(current, now);
-  if (!safeIncoming) return safeCurrent ?? incoming;
-  if (!safeCurrent) return safeIncoming;
-  if (safeIncoming.updatedAt < safeCurrent.updatedAt) return safeCurrent;
-
-  const steps = { ...safeCurrent.steps };
-  for (const [stepId, nextStep] of Object.entries(safeIncoming.steps)) {
-    const previousStep = safeCurrent.steps[stepId];
-    if (!previousStep) {
-      steps[stepId] = nextStep;
-      continue;
-    }
-
-    const attempts = new Map(
-      [...previousStep.attempts, ...nextStep.attempts].map((attempt) => [
-        attempt.id,
-        attempt,
-      ])
-    );
-    steps[stepId] = {
-      ...nextStep,
-      attempts: [...attempts.values()].sort(
-        (left, right) => left.submittedAt - right.submittedAt
-      ),
-      revealedHints: Math.max(
-        previousStep.revealedHints,
-        nextStep.revealedHints
-      ),
-      totalActiveSeconds: Math.max(
-        previousStep.totalActiveSeconds,
-        nextStep.totalActiveSeconds
-      ),
-      solvedAt: previousStep.solvedAt ?? nextStep.solvedAt,
-    };
-  }
-
-  return {
-    ...safeIncoming,
-    nodeId: safeIncoming.nodeId,
-    shuffleSeed: safeCurrent.shuffleSeed,
-    startedAt: Math.min(safeCurrent.startedAt, safeIncoming.startedAt),
-    completedAt: safeCurrent.completedAt ?? safeIncoming.completedAt,
-    steps,
-    analytics: { ...safeCurrent.analytics, ...safeIncoming.analytics },
-  };
-}
-
-function hasCompletedE0(progress: NodeChallengeProgress | undefined): boolean {
-  return Boolean(
-    progress?.nodeId === "E0" &&
-      E0_STEP_IDS.every((stepId) =>
-        isPositiveTimestamp(progress.steps?.[stepId]?.solvedAt)
-      )
-  );
-}
-
 function loadState(): AppState {
   if (typeof window === "undefined") return defaultState;
   try {
@@ -412,8 +191,13 @@ function loadState(): AppState {
     const rawChallenges = isRecord(parsed.challengeProgress)
       ? parsed.challengeProgress
       : {};
-    const normalizedE0 = normalizeE0Progress(rawChallenges.E0);
-    if (normalizedE0) challengeProgress.E0 = normalizedE0;
+    for (const nodeId of ELECTRONICS_CHALLENGE_NODE_IDS) {
+      const normalized = normalizeNodeChallengeProgress(
+        rawChallenges[nodeId],
+        ELECTRONICS_CHALLENGE_PROGRESS[nodeId]
+      );
+      if (normalized) challengeProgress[nodeId] = normalized;
+    }
     const progress = normalizeProgress(parsed.progress);
     const completedAt = normalizeCompletedAt(parsed.completedAt);
     const sourceVersion =
@@ -421,47 +205,44 @@ function loadState(): AppState {
       Number.isFinite(parsed.schemaVersion)
         ? parsed.schemaVersion
         : 1;
-    const isLegacySource = sourceVersion <= 1;
-    const e0Progress = challengeProgress.E0;
-    const e0IsComplete = hasCompletedE0(e0Progress);
     const submitted = parsed.submitted === true;
     const introduction = normalizeIntroduction(parsed.introduction);
 
-    // E0 used to be completed by a prototype button. Once the real five-step
-    // challenge exists, that marker is not valid evidence. Reopen only the
-    // Electronics branch while preserving registration and every other branch.
-    if (
-      isLegacySource &&
-      !submitted &&
-      progress.E0 === "completed" &&
-      !e0IsComplete
-    ) {
-      for (const nodeId of ["E0", "E1A", "E1B", "E2", "E3A", "E3B", "E4"]) {
-        delete progress[nodeId];
-        delete completedAt[nodeId];
-      }
-    }
-
-    // Recover a challenge that finished just before an interrupted tree-state
-    // write. Detailed solved steps are the source of truth for implemented nodes.
-    if (e0Progress && e0IsComplete) {
-      const completionTimestamp =
-        e0Progress.completedAt ??
-        Math.max(
-          ...E0_STEP_IDS.map((stepId) => e0Progress.steps[stepId].solvedAt ?? 0)
+    // Before schema v3, E1A-E4 could be completed by a prototype button. For
+    // editable journeys, detailed steps are now the source of truth. Reconcile
+    // them in tree order so every level still requires all preceding siblings.
+    if (!submitted && sourceVersion <= 3) {
+      for (const nodeId of ELECTRONICS_CHALLENGE_NODE_IDS) {
+        const definition = ELECTRONICS_CHALLENGE_PROGRESS[nodeId];
+        const detailed = challengeProgress[nodeId];
+        const requirements = nodeById(nodeId)?.requires ?? [];
+        const requirementsComplete = requirements.every(
+          (requirementId) => progress[requirementId] === "completed"
         );
-      challengeProgress.E0 = {
-        ...e0Progress,
-        completedAt: completionTimestamp,
-      };
-      if (!submitted) {
-        progress.E0 = "completed";
-        completedAt.E0 = completionTimestamp;
+
+        if (hasCompletedChallenge(detailed, definition) && requirementsComplete) {
+          const completionTimestamp =
+            detailed?.completedAt ??
+            Math.max(
+              ...definition.stepIds.map(
+                (stepId) => detailed?.steps[stepId]?.solvedAt ?? 0
+              )
+            );
+          challengeProgress[nodeId] = {
+            ...detailed,
+            completedAt: completionTimestamp,
+          };
+          progress[nodeId] = "completed";
+          completedAt[nodeId] = completionTimestamp;
+        } else {
+          delete progress[nodeId];
+          delete completedAt[nodeId];
+        }
       }
     }
 
     return {
-      schemaVersion: 2,
+      schemaVersion: 3,
       profile,
       progress,
       completedAt,
@@ -627,13 +408,17 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const saveChallengeProgress = useCallback(
     (nodeId: string, challengeProgress: NodeChallengeProgress) => {
       commitState((prev) => {
-        const normalized =
-          nodeId === "E0" ? normalizeE0Progress(challengeProgress) : null;
-        if (!normalized || normalized.nodeId !== nodeId) return prev;
-        const merged = mergeChallengeProgress(
+        const definition = getElectronicsChallengeProgressDefinition(nodeId);
+        const normalized = definition
+          ? normalizeNodeChallengeProgress(challengeProgress, definition)
+          : null;
+        if (!definition || !normalized || normalized.nodeId !== nodeId) return prev;
+        const merged = mergeNodeChallengeProgress(
           prev.challengeProgress[nodeId],
-          normalized
+          normalized,
+          definition
         );
+        if (!merged) return prev;
         if (Object.is(merged, prev.challengeProgress[nodeId])) return prev;
         return {
           ...prev,
@@ -650,10 +435,12 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const completeChallenge = useCallback(
     (nodeId: string, challengeProgress: NodeChallengeProgress) => {
       commitState((prev) => {
-        const normalized =
-          nodeId === "E0" ? normalizeE0Progress(challengeProgress) : null;
+        const definition = getElectronicsChallengeProgressDefinition(nodeId);
+        const normalized = definition
+          ? normalizeNodeChallengeProgress(challengeProgress, definition)
+          : null;
         if (
-          nodeId !== "E0" ||
+          !definition ||
           !normalized ||
           normalized.nodeId !== nodeId ||
           prev.submitted ||
@@ -663,15 +450,18 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
           return prev;
         }
 
-        const completedChallenge = mergeChallengeProgress(
+        const completedChallenge = mergeNodeChallengeProgress(
           prev.challengeProgress[nodeId],
           {
             ...normalized,
             completedAt: normalized.completedAt ?? Date.now(),
             updatedAt: Date.now(),
-          }
+          },
+          definition
         );
-        if (!hasCompletedE0(completedChallenge)) return prev;
+        if (!completedChallenge || !hasCompletedChallenge(completedChallenge, definition)) {
+          return prev;
+        }
 
         const timestamp = completedChallenge.completedAt ?? Date.now();
         return {
@@ -693,7 +483,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       if (
         prev.submitted ||
         !isValidCandidateProfile(prev.profile) ||
-        nodeId === "E0" ||
+        isElectronicsChallengeNodeId(nodeId) ||
         computeStatus(nodeId, prev.progress) !== "available"
       ) {
         return prev;
@@ -731,6 +521,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     } catch {
       storageError = true;
     }
+    void clearAllEvidenceFiles().catch(() => setSaveStatus("error"));
     stateRef.current = defaultState;
     setState(defaultState);
     setSessionActive(false);

@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+<rect width="1600" height="900" fill="#071824"/>
+<defs>
+<style>
+.title{font:700 46px Arial,sans-serif;fill:#F5FAFD}
+.sub{font:400 23px Arial,sans-serif;fill:#9CB6C8}
+.cardTitle{font:700 27px Arial,sans-serif;fill:#F5FAFD}
+.body{font:400 21px Arial,sans-serif;fill:#F5FAFD}
+.small{font:400 18px Arial,sans-serif;fill:#9CB6C8}
+.label{font:700 18px Arial,sans-serif;fill:#39C8F0;letter-spacing:1.2px}
+.value{font:700 31px Arial,sans-serif;fill:#F5FAFD}
+.wire{stroke:#39C8F0;stroke-width:5;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.wire2{stroke:#F5FAFD;stroke-width:4;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.dim{stroke:#24516A;stroke-width:4;fill:none;stroke-linecap:round;stroke-linejoin:round}
+</style>
+</defs>
+
+<text x="90" y="90" class="label">E1B · PLACA DE REFERENCIA</text>
+<text x="90" y="148" class="title">ESP32 DevKit — pines e interfaces</text>
+<text x="90" y="192" class="sub">Referencia visual para ADC, PWM, UART, I²C y SPI.</text>
+<rect x="590" y="220" width="420" height="480" rx="28" fill="#102E41" stroke="#0A84C7" stroke-width="4"/>
+<rect x="690" y="280" width="220" height="180" rx="18" fill="#0D2534" stroke="#39C8F0" stroke-width="3"/>
+<text x="800" y="380" text-anchor="middle" class="value">ESP32</text>
+<line x1="590" y1="260" x2="550" y2="260" class="wire2"/><text x="430" y="266" class="small">3V3</text><line x1="1010" y1="260" x2="1050" y2="260" class="wire2"/><text x="1070" y="266" class="small">VIN</text><line x1="590" y1="294" x2="550" y2="294" class="wire2"/><text x="430" y="300" class="small">EN</text><line x1="1010" y1="294" x2="1050" y2="294" class="wire2"/><text x="1070" y="300" class="small">GND</text><line x1="590" y1="328" x2="550" y2="328" class="wire2"/><text x="430" y="334" class="small">GPIO36/ADC</text><line x1="1010" y1="328" x2="1050" y2="328" class="wire2"/><text x="1070" y="334" class="small">GPIO23/MOSI</text><line x1="590" y1="362" x2="550" y2="362" class="wire2"/><text x="430" y="368" class="small">GPIO39/ADC</text><line x1="1010" y1="362" x2="1050" y2="362" class="wire2"/><text x="1070" y="368" class="small">GPIO22/SCL</text><line x1="590" y1="396" x2="550" y2="396" class="wire2"/><text x="430" y="402" class="small">GPIO34/ADC</text><line x1="1010" y1="396" x2="1050" y2="396" class="wire2"/><text x="1070" y="402" class="small">GPIO1/TX</text><line x1="590" y1="430" x2="550" y2="430" class="wire2"/><text x="430" y="436" class="small">GPIO35/ADC</text><line x1="1010" y1="430" x2="1050" y2="430" class="wire2"/><text x="1070" y="436" class="small">GPIO3/RX</text><line x1="590" y1="464" x2="550" y2="464" class="wire2"/><text x="430" y="470" class="small">GPIO32</text><line x1="1010" y1="464" x2="1050" y2="464" class="wire2"/><text x="1070" y="470" class="small">GPIO21/SDA</text><line x1="590" y1="498" x2="550" y2="498" class="wire2"/><text x="430" y="504" class="small">GPIO33</text><line x1="1010" y1="498" x2="1050" y2="498" class="wire2"/><text x="1070" y="504" class="small">GPIO19/MISO</text><line x1="590" y1="532" x2="550" y2="532" class="wire2"/><text x="430" y="538" class="small">GPIO25</text><line x1="1010" y1="532" x2="1050" y2="532" class="wire2"/><text x="1070" y="538" class="small">GPIO18/SCK</text><line x1="590" y1="566" x2="550" y2="566" class="wire2"/><text x="430" y="572" class="small">GPIO26</text><line x1="1010" y1="566" x2="1050" y2="566" class="wire2"/><text x="1070" y="572" class="small">GPIO5/CS</text><line x1="590" y1="600" x2="550" y2="600" class="wire2"/><text x="430" y="606" class="small">GPIO27</text><line x1="1010" y1="600" x2="1050" y2="600" class="wire2"/><text x="1070" y="606" class="small">GPIO17</text><line x1="590" y1="634" x2="550" y2="634" class="wire2"/><text x="430" y="640" class="small">GPIO14</text><line x1="1010" y1="634" x2="1050" y2="634" class="wire2"/><text x="1070" y="640" class="small">GPIO16</text><line x1="590" y1="668" x2="550" y2="668" class="wire2"/><text x="430" y="674" class="small">GPIO12</text><line x1="1010" y1="668" x2="1050" y2="668" class="wire2"/><text x="1070" y="674" class="small">GPIO4</text>
+</svg>

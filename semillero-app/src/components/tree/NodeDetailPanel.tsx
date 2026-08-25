@@ -1,9 +1,22 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ComponentType,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { E0Challenge } from "@/components/challenges/electronics/E0Challenge";
+import { E1AChallenge } from "@/components/challenges/electronics/E1AChallenge";
+import { E1BChallenge } from "@/components/challenges/electronics/E1BChallenge";
+import { E2Challenge } from "@/components/challenges/electronics/E2Challenge";
+import { E3AChallenge } from "@/components/challenges/electronics/E3AChallenge";
+import { E3BChallenge } from "@/components/challenges/electronics/E3BChallenge";
+import { E4Challenge } from "@/components/challenges/electronics/E4Challenge";
 import { BranchIcon } from "@/components/icons/BranchIcon";
 import {
   DELIVERY_FORMAT_LABELS,
@@ -11,6 +24,7 @@ import {
   type DeliveryFormat,
 } from "@/lib/challengePresentation";
 import { BRANCHES } from "@/lib/data/branches";
+import { isElectronicsChallengeNodeId } from "@/lib/challenges/electronics/registry";
 import type {
   NodeChallengeProgress,
   NodeStatus,
@@ -39,6 +53,25 @@ const STATUS_COPY: Record<
     detail:
       "Completa todos los retos del nivel anterior para habilitar esta experiencia.",
   },
+};
+
+interface DetailedChallengeProps {
+  savedProgress?: NodeChallengeProgress;
+  readOnly: boolean;
+  onSave: (progress: NodeChallengeProgress) => void;
+  onComplete: (finalProgress: NodeChallengeProgress) => void;
+}
+
+const ELECTRONICS_CHALLENGE_COMPONENTS: Readonly<
+  Record<string, ComponentType<DetailedChallengeProps>>
+> = {
+  E0: E0Challenge,
+  E1A: E1AChallenge,
+  E1B: E1BChallenge,
+  E2: E2Challenge,
+  E3A: E3AChallenge,
+  E3B: E3BChallenge,
+  E4: E4Challenge,
 };
 
 export function NodeDetailPanel({
@@ -182,7 +215,7 @@ export function NodeDetailPanel({
             exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 24, scale: 0.985 }}
             transition={{ duration: reduceMotion ? 0 : 0.34, ease: [0.16, 1, 0.3, 1] }}
             className={`relative z-10 flex max-h-[calc(100dvh-1rem)] w-full flex-col overflow-hidden rounded-t-3xl border border-line bg-[#081f32] shadow-[0_32px_100px_rgba(0,0,0,0.55)] outline-none sm:max-h-[calc(100dvh-3rem)] sm:rounded-3xl ${
-              node.id === "E0" ? "max-w-7xl" : "max-w-5xl"
+              isElectronicsChallengeNodeId(node.id) ? "max-w-7xl" : "max-w-5xl"
             }`}
           >
             <ChallengeHeader
@@ -296,11 +329,12 @@ function ChallengeBody({
   const branch = BRANCHES[node.branchId];
   const presentation = getChallengePresentation(node);
   const statusCopy = STATUS_COPY[status];
+  const DetailedChallenge = ELECTRONICS_CHALLENGE_COMPONENTS[node.id];
 
-  if (node.id === "E0" && status !== "locked") {
+  if (DetailedChallenge && status !== "locked") {
     return (
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 sm:p-5 lg:p-6">
-        <E0Challenge
+        <DetailedChallenge
           savedProgress={challengeProgress}
           readOnly={status === "completed"}
           onSave={(progress) => onSaveChallengeProgress(node.id, progress)}
