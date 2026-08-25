@@ -51,6 +51,7 @@ export interface E0ChallengeProps {
 type EvaluationMap = Partial<Record<E0StepId, E0StepEvaluation>>;
 
 const SYMBOL_QUESTION = E0_STEPS[4].questions[0] as E0MatchingQuestion;
+const PUBLIC_BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 const SYMBOL_IDS = SYMBOL_QUESTION.pairs.map((pair) => pair.symbolId);
 
 export function E0Challenge({
@@ -1157,7 +1158,7 @@ function StepVisual({ step }: { step: E0StepDefinition }) {
   return (
     <figure className="w-full overflow-hidden rounded-2xl border border-white/10 bg-[#04131d]">
       <Image
-        src={step.asset.src}
+        src={`${PUBLIC_BASE_PATH}${step.asset.src}`}
         alt={step.asset.alt}
         width={1600}
         height={900}

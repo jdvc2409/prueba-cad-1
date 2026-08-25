@@ -10,6 +10,9 @@ const nextConfig: NextConfig = {
   output: "export",
   basePath: repoBasePath,
   assetPrefix: repoBasePath,
+  env: {
+    NEXT_PUBLIC_BASE_PATH: repoBasePath,
+  },
   images: {
     unoptimized: true,
   },
