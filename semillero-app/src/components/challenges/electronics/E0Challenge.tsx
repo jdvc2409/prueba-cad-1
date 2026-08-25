@@ -932,7 +932,7 @@ function OhmPowerForm({
                 }}
                 aria-describedby={`E0-${question.id}-help`}
                 className="min-w-0 flex-1 rounded-xl border border-white/15 bg-[#04131d] px-3 py-3 text-base text-white outline-none transition placeholder:text-slate-600 focus:border-[#39C8F0]/60 focus:ring-2 focus:ring-[#39C8F0]/15 disabled:opacity-65"
-                placeholder={isCurrent ? "Ej. 50" : "Ej. 0,25"}
+                placeholder={isCurrent ? "Ej. 120" : "Ej. 1,5"}
               />
               <select
                 aria-label={`Unidad de ${question.quantity === "current" ? "corriente" : "potencia"}`}
