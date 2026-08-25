@@ -15,6 +15,7 @@ export type E2ComponentCategory =
 export interface E2Requirement {
   readonly id: string;
   readonly label: string;
+  readonly description: string;
 }
 
 export interface E2ComponentCategoryOption {
@@ -82,11 +83,36 @@ export type E2SupportedEvidenceType =
 export const E2_ARCHITECTURE_MIN_CHARS = 160;
 
 export const E2_REQUIREMENTS = [
-  { id: "front-obstacle", label: "Detectar un obstáculo frontal" },
-  { id: "edge", label: "Detectar un borde o desnivel" },
-  { id: "two-wheels", label: "Mover al menos dos ruedas" },
-  { id: "visual-signal", label: "Mostrar el estado con una señal visual" },
-  { id: "mcu", label: "Ser controlado por un microcontrolador" },
+  {
+    id: "front-obstacle",
+    label: "Detectar un obstáculo frontal",
+    description:
+      "Debe percibir un obstáculo frente a él a una distancia aproximada de 10 a 30 cm y reaccionar (detenerse, retroceder o esquivar) antes de chocar.",
+  },
+  {
+    id: "edge",
+    label: "Detectar un borde o desnivel",
+    description:
+      "No solo obstáculos al frente: también debe notar cuando el piso desaparece bajo él (por ejemplo el borde de una mesa) para no caerse.",
+  },
+  {
+    id: "two-wheels",
+    label: "Mover al menos dos ruedas",
+    description:
+      "Debe controlar al menos dos ruedas de forma independiente, con potencia suficiente para avanzar, retroceder y girar.",
+  },
+  {
+    id: "visual-signal",
+    label: "Mostrar el estado con una señal visual",
+    description:
+      "Debe comunicar su estado (por ejemplo detenido, avanzando o en alerta) con una señal visual, como un LED o una matriz LED.",
+  },
+  {
+    id: "mcu",
+    label: "Ser controlado por un microcontrolador",
+    description:
+      "La decisión de qué hacer con los motores a partir de lo que leen los sensores debe tomarla un microcontrolador, no electrónica puramente analógica.",
+  },
 ] as const satisfies readonly E2Requirement[];
 
 export const E2_COMPONENT_CATEGORIES = [

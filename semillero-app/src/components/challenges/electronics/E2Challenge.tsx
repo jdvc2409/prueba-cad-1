@@ -597,18 +597,18 @@ function BriefEditor({
         Requisitos que debe cubrir tu propuesta
       </p>
       <p className="mt-1 text-xs leading-5 text-slate-400">
-        Marca cada requisito después de leerlo. Los cinco son obligatorios.
+        Lee cada requisito con atención y márcalo cuando lo hayas entendido. Los cinco son obligatorios.
       </p>
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+      <div className="mt-4 space-y-3">
         {E2_REQUIREMENTS.map((requirement, index) => {
           const checked = confirmed.has(requirement.id);
           return (
             <label
               key={requirement.id}
-              className={`flex min-h-16 cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 text-sm leading-5 transition ${
+              className={`flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3.5 transition ${
                 checked
-                  ? "border-[#39C8F0]/45 bg-[#0A84C7]/12 text-white"
-                  : "border-white/10 bg-[#04131d]/65 text-slate-300 hover:border-white/20"
+                  ? "border-[#39C8F0]/45 bg-[#0A84C7]/12"
+                  : "border-white/10 bg-[#04131d]/65 hover:border-white/20"
               } ${disabled ? "cursor-default opacity-75" : ""}`}
             >
               <input
@@ -623,11 +623,22 @@ function BriefEditor({
                     : [...draft.confirmedRequirementIds, requirement.id];
                   onChange({ ...draft, confirmedRequirementIds: next });
                 }}
-                className="h-4 w-4 shrink-0 accent-[#39C8F0] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#39C8F0]"
+                className="mt-0.5 h-4 w-4 shrink-0 accent-[#39C8F0] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#39C8F0]"
               />
-              <span className="flex-1">{requirement.label}</span>
+              <span className="flex-1">
+                <span
+                  className={`block text-sm font-semibold leading-5 ${
+                    checked ? "text-white" : "text-slate-200"
+                  }`}
+                >
+                  {requirement.label}
+                </span>
+                <span className="mt-1 block text-xs leading-5 text-slate-400">
+                  {requirement.description}
+                </span>
+              </span>
               <span
-                className="text-[10px] font-bold text-slate-500"
+                className="mt-0.5 shrink-0 text-[10px] font-bold text-slate-500"
                 aria-hidden="true"
               >
                 0{index + 1}
