@@ -377,10 +377,9 @@ export const E1A_STEPS: readonly E1AStepDefinition[] = [
   {
     id: "faults",
     order: 3,
-    title: "Diagnostica el driver de motores",
+    title: "Diagnostica los circuitos",
     eyebrow: "Banco de diagnóstico",
-    statement:
-      "Tres circuitos con motores DC: uno sin driver, uno con un L293D que tiene un error, y ese mismo circuito ya resuelto. Investiga, explica y diagnostica cada caso.",
+    statement: "Tres circuitos diferentes. Investiga, explica y diagnostica cada uno.",
     asset: E1A_FAULT_CASES[0].asset,
     hints: ["¿Qué es un puente H?"],
   },
