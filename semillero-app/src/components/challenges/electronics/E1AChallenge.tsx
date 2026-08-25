@@ -773,11 +773,11 @@ function FaultsStep({
                       : "cursor-not-allowed border-white/[0.06] bg-black/10 text-slate-600"
               }`}
             >
-              <span className="block text-[9px] font-black uppercase tracking-[0.13em]">
-                {complete ? "Respondido" : `Caso ${index + 1}`}
+              <span className="block text-[11px] font-bold text-white">
+                {item.title}
               </span>
-              <span className="mt-0.5 hidden text-[11px] font-semibold sm:block">
-                {item.title.replace(/^Caso \d+ · /, "")}
+              <span className="mt-0.5 block text-[9px] font-semibold uppercase tracking-[0.13em] text-slate-400">
+                {complete ? "Respondido" : "Sin resolver"}
               </span>
             </button>
           );

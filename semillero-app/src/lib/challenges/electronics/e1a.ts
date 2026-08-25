@@ -263,21 +263,11 @@ const BLOCKS_ASSET: E1AAsset = {
   alt: "Plano eléctrico rotulado del robot usado para asociar cada componente con su función.",
 };
 
-const MISSING_ELEMENTS_OPTIONS: readonly E1AFaultOption[] = [
-  { id: "h-bridge-driver", label: "Un driver / puente H para los motores, como el L293D" },
-  { id: "separate-motor-supply", label: "Una fuente de alimentación independiente para los motores (no compartir el pin 5V del Arduino)" },
-  { id: "series-resistor", label: "Una resistencia limitadora en serie con cada motor" },
-  { id: "decoupling-capacitor", label: "Un capacitor de desacople junto al Arduino" },
-  { id: "current-sensor", label: "Un sensor de corriente para monitorear los motores" },
-  { id: "fuse", label: "Un fusible entre la batería y el Arduino" },
-] as const;
-
 export const E1A_FAULT_CASES: readonly E1AFaultCase[] = [
   {
     id: "direct-wiring",
-    title: "Caso 1 · Motores conectados directo al Arduino",
-    prompt:
-      "Este circuito conecta los dos motores directamente a pines digitales del Arduino, y alimenta la placa con una batería de 9 V en el pin 5V.",
+    title: "Caso 1",
+    prompt: "Este circuito busca mover los motores.",
     asset: {
       sourceFilename: "E1A_deteccion_fallos_caso-1.png",
       src: "/challenges/electronics/e1a/electronics_E1A_S3_case1_direct_wiring.png",
@@ -293,14 +283,8 @@ export const E1A_FAULT_CASES: readonly E1AFaultCase[] = [
       },
       {
         id: "missing-elements",
-        kind: "multiple",
+        kind: "open",
         prompt: "¿Qué elementos le faltan a este circuito?",
-        options: MISSING_ELEMENTS_OPTIONS,
-        correctOptionIds: ["h-bridge-driver", "separate-motor-supply"],
-        feedback: {
-          correct: "Un driver de motores y una fuente separada para ellos resuelven el problema.",
-          incorrect: "Piensa en qué protege al Arduino y en de dónde debería salir la corriente de los motores.",
-        },
       },
       {
         id: "why-selected",
@@ -311,9 +295,8 @@ export const E1A_FAULT_CASES: readonly E1AFaultCase[] = [
   },
   {
     id: "l293d-diagnosis",
-    title: "Caso 2 · Circuito con L293D",
-    prompt:
-      "Este circuito ya usa un integrado L293D para controlar los motores desde una protoboard, pero tiene un error. Investiga el datasheet del L293D antes de responder.",
+    title: "Caso 2",
+    prompt: "Este circuito busca controlar la dirección de giro de los motores.",
     asset: {
       sourceFilename: "E1A_deteccion_fallos_caso-2.png",
       src: "/challenges/electronics/e1a/electronics_E1A_S3_case2_l293d_diagnosis.png",
@@ -341,9 +324,8 @@ export const E1A_FAULT_CASES: readonly E1AFaultCase[] = [
   },
   {
     id: "l293d-solved",
-    title: "Caso 3 · L293D con los pines de control a GND",
-    prompt:
-      "Este es el mismo circuito del caso 2, ahora resuelto: los pines de control del L293D quedaron conectados a GND.",
+    title: "Caso 3",
+    prompt: "Este circuito busca controlar la velocidad y la dirección de giro de los motores.",
     asset: {
       sourceFilename: "E1A_deteccion_fallos_caso-3.png",
       src: "/challenges/electronics/e1a/electronics_E1A_S3_case3_l293d_solved.png",
@@ -400,9 +382,7 @@ export const E1A_STEPS: readonly E1AStepDefinition[] = [
     statement:
       "Tres circuitos con motores DC: uno sin driver, uno con un L293D que tiene un error, y ese mismo circuito ya resuelto. Investiga, explica y diagnostica cada caso.",
     asset: E1A_FAULT_CASES[0].asset,
-    hints: [
-      "El datasheet del L293D es tu mejor herramienta en los casos 2 y 3: revisa qué necesita cada pin para habilitar una salida.",
-    ],
+    hints: ["¿Qué es un puente H?"],
   },
 ] as const;
 
