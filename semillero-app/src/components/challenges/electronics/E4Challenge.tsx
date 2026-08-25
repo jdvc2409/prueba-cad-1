@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LocalEvidenceUploader } from "@/components/challenges/LocalEvidenceUploader";
 import {
@@ -27,7 +26,6 @@ export interface E4ChallengeProps {
 }
 
 const STEP_ID = "open-project";
-const PUBLIC_BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
 export function E4Challenge({
   savedProgress,
@@ -246,10 +244,10 @@ export function E4Challenge({
       </header>
 
       <div className="p-4 sm:p-6 lg:p-8">
-        <figure className="overflow-hidden rounded-2xl border border-line bg-night/30">
-          <Image src={`${PUBLIC_BASE_PATH}${content.asset.src}`} alt={content.asset.alt} width={1600} height={900} className="h-auto w-full" />
-          <figcaption className="border-t border-line px-4 py-3 text-xs leading-5 text-muted">Organiza evidencia suficiente para que otra persona pueda comprender y revisar el proyecto.</figcaption>
-        </figure>
+        <div className="overflow-hidden rounded-2xl border border-cyan/25 bg-gradient-to-br from-cyan/10 via-night/40 to-night/30 p-5 sm:p-7">
+          <p className="font-heading text-xl font-bold text-ink sm:text-2xl">{content.brief.heading}</p>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-muted">{content.brief.body}</p>
+        </div>
 
         <div className="mt-6 grid gap-5 lg:grid-cols-2">
           <TextField label="Título del proyecto" value={draft.title} min={content.minimums.title} max={120} disabled={readOnly || solved} error={errors.title} onChange={(value) => changeDraft({ title: value })} />

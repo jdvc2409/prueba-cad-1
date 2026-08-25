@@ -64,6 +64,10 @@ export const E4_CHALLENGE = {
       title: "Tu proyecto electrónico",
       statement:
         "Puede ser construido o simulado. Nos interesa entender el problema, tus decisiones y la evidencia que permite revisar el resultado.",
+      brief: {
+        heading: "Ahora es tu momento de diseñar",
+        body: "Propón una solución electrónica propia: puede ser un robot, un conjunto de sensores y actuadores, una PCB, un sistema de control… Puede estar simulada o construida físicamente. Lo que evaluamos es que definas bien el problema, justifiques tus decisiones técnicas y dejes evidencia suficiente para que se pueda revisar.",
+      },
       minimums: {
         title: 5,
         problem: 80,
@@ -74,12 +78,6 @@ export const E4_CHALLENGE = {
       hints: [
         "Delimita el problema y explica el flujo completo —alimentación, sensado, decisión, driver y salida— antes de reunir tus evidencias.",
       ],
-      asset: {
-        src: "/challenges/electronics/e4/electronics_E4_S1_submission_examples.png",
-        sourceFilename: "electronics_E4_S1_submission_examples.png",
-        alt:
-          "Ejemplos de entregables: esquema o diagrama, evidencia visual, código cuando aplique y reflexión del proceso.",
-      },
       acceptedEvidence: {
         schematic: ".png,.jpg,.jpeg,.svg,.pdf,image/png,image/jpeg,image/svg+xml,application/pdf",
         demonstration: "image/*,video/*,application/pdf,.pdf",
