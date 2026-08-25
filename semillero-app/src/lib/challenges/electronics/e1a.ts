@@ -50,6 +50,8 @@ export interface E1AFunctionOption {
 export interface E1ABlockDefinition {
   readonly id: E1ABlockId;
   readonly shortLabel: string;
+  readonly componentName: string;
+  readonly componentDetail: string;
   readonly accessibleLabel: string;
   readonly correctFunctionId: E1AFunctionId;
   readonly hotspot: E1AHotspot;
@@ -180,6 +182,8 @@ export const E1A_BLOCKS: readonly E1ABlockDefinition[] = [
   {
     id: "battery",
     shortLabel: "B1",
+    componentName: "Batería",
+    componentDetail: "12 V · alimentación principal",
     accessibleLabel: "Bloque izquierdo: batería de 12 V",
     correctFunctionId: "source",
     hotspot: { left: 7.5, top: 36.7, width: 11.3, height: 13.4 },
@@ -187,6 +191,8 @@ export const E1A_BLOCKS: readonly E1ABlockDefinition[] = [
   {
     id: "regulator",
     shortLabel: "B2",
+    componentName: "Regulador buck",
+    componentDetail: "Convierte 12 V en 5 V",
     accessibleLabel: "Segundo bloque: regulador de 5 V",
     correctFunctionId: "regulation",
     hotspot: { left: 23.7, top: 36.7, width: 13.2, height: 13.4 },
@@ -194,6 +200,8 @@ export const E1A_BLOCKS: readonly E1ABlockDefinition[] = [
   {
     id: "mcu",
     shortLabel: "B3",
+    componentName: "Microcontrolador ESP32",
+    componentDetail: "Procesa entradas y genera señales de control",
     accessibleLabel: "Bloque central grande: microcontrolador",
     correctFunctionId: "processing",
     hotspot: { left: 43.7, top: 31.6, width: 16.3, height: 23.5 },
@@ -201,6 +209,8 @@ export const E1A_BLOCKS: readonly E1ABlockDefinition[] = [
   {
     id: "sensor",
     shortLabel: "B4",
+    componentName: "Sensor ultrasónico",
+    componentDetail: "Entrega las señales TRIG y ECHO",
     accessibleLabel: "Bloque superior derecho: sensor ultrasónico",
     correctFunctionId: "measurement",
     hotspot: { left: 69, top: 30, width: 11.7, height: 12.3 },
@@ -208,6 +218,8 @@ export const E1A_BLOCKS: readonly E1ABlockDefinition[] = [
   {
     id: "led",
     shortLabel: "B5",
+    componentName: "LED de estado",
+    componentDetail: "Indica visualmente el estado del robot",
     accessibleLabel: "Bloque medio derecho: LED de estado",
     correctFunctionId: "indicator",
     hotspot: { left: 69, top: 47.7, width: 11.7, height: 12.4 },
@@ -215,6 +227,8 @@ export const E1A_BLOCKS: readonly E1ABlockDefinition[] = [
   {
     id: "motor-driver",
     shortLabel: "B6",
+    componentName: "Driver de motor",
+    componentDetail: "Adapta las señales del ESP32 a la etapa de potencia",
     accessibleLabel: "Bloque inferior derecho: driver de motor",
     correctFunctionId: "driver",
     hotspot: { left: 64.3, top: 70, width: 13.9, height: 12.4 },
@@ -222,6 +236,8 @@ export const E1A_BLOCKS: readonly E1ABlockDefinition[] = [
   {
     id: "dc-motor",
     shortLabel: "B7",
+    componentName: "Motor DC",
+    componentDetail: "Convierte energía eléctrica en movimiento",
     accessibleLabel: "Círculo del extremo derecho: motor DC",
     correctFunctionId: "actuation",
     hotspot: { left: 84.1, top: 69.8, width: 7, height: 12.8 },
@@ -231,39 +247,38 @@ export const E1A_BLOCKS: readonly E1ABlockDefinition[] = [
 const INTERPRETATION_ASSET: E1AAsset = {
   sourceFilename: "electronics_E1A_S1_robot_schematic_simple.svg",
   src: "/challenges/electronics/e1a/electronics_E1A_S1_robot_schematic_simple.svg",
-  alt: "Esquema de un robot con batería, regulador, microcontrolador, sensor, LED, driver y motor.",
+  alt: "Plano eléctrico por bloques de un robot: batería de 12 voltios, regulador, ESP32, sensor, LED, driver y motor con sus conexiones de alimentación y señal.",
 };
 
 const BLOCKS_ASSET: E1AAsset = {
-  sourceFilename: "electronics_E1A_S2_robot_schematic_labeled_blank.svg",
-  src: "/challenges/electronics/e1a/electronics_E1A_S2_robot_schematic_labeled_blank.svg",
-  alt: "Esquema del robot con siete bloques sin etiquetas para asociar sus funciones.",
+  ...INTERPRETATION_ASSET,
+  alt: "Plano eléctrico rotulado del robot usado para asociar cada componente con su función.",
 };
 
 export const E1A_FAULTS: readonly E1AFaultDefinition[] = [
   {
     id: "missing-resistor",
-    title: "Caso 1 · LED sin limitación",
-    prompt: "Señala el sector del circuito que debes corregir.",
+    title: "Caso 1 · LED con brillo excesivo",
+    prompt: "Al energizar el circuito, el LED brilla demasiado y termina dañándose. Analiza el recorrido de corriente.",
     asset: {
       sourceFilename: "electronics_E1A_S3_fault_case_led.svg",
       src: "/challenges/electronics/e1a/electronics_E1A_S3_fault_case_led.svg",
-      alt: "Circuito de un LED conectado sin resistencia limitadora.",
+      alt: "Circuito de alimentación, rama de LED y retorno a tierra para diagnóstico.",
     },
     targets: [
       {
         id: "left-supply",
-        accessibleLabel: "Zona izquierda de alimentación",
+        accessibleLabel: "Zona A · Fuente de 3,3 V",
         hotspot: { left: 25, top: 39, width: 11, height: 15 },
       },
       {
         id: "led-branch",
-        accessibleLabel: "Rama del LED en el centro",
+        accessibleLabel: "Zona B · Rama GPIO–LED",
         hotspot: { left: 36.5, top: 43, width: 11, height: 16 },
       },
       {
         id: "right-return",
-        accessibleLabel: "Conductor de retorno derecho",
+        accessibleLabel: "Zona C · Retorno a GND",
         hotspot: { left: 49, top: 39, width: 8, height: 15 },
       },
     ],
@@ -282,27 +297,27 @@ export const E1A_FAULTS: readonly E1AFaultDefinition[] = [
   },
   {
     id: "reverse-polarity",
-    title: "Caso 2 · Módulo polarizado",
-    prompt: "Señala dónde aparece la incompatibilidad de polaridad.",
+    title: "Caso 2 · Módulo que no enciende",
+    prompt: "El módulo no inicia y comienza a calentarse al conectarlo. Compara los terminales con las líneas de alimentación.",
     asset: {
       sourceFilename: "electronics_E1A_S4_fault_case_reverse_polarity.svg",
       src: "/challenges/electronics/e1a/electronics_E1A_S4_fault_case_reverse_polarity.svg",
-      alt: "Módulo cuyos terminales positivo y negativo están alimentados de forma invertida.",
+      alt: "Fuente conectada a un módulo con terminales positivo y negativo para diagnóstico.",
     },
     targets: [
       {
         id: "left-wire",
-        accessibleLabel: "Conductor izquierdo",
+        accessibleLabel: "Zona A · Salida de la fuente",
         hotspot: { left: 25, top: 39, width: 9, height: 15 },
       },
       {
         id: "module-terminals",
-        accessibleLabel: "Terminales positivo y negativo del módulo",
+        accessibleLabel: "Zona B · Terminales VCC y GND del módulo",
         hotspot: { left: 33.5, top: 42, width: 14.5, height: 21 },
       },
       {
         id: "right-wire",
-        accessibleLabel: "Conductor derecho",
+        accessibleLabel: "Zona C · Señal de salida",
         hotspot: { left: 48, top: 39, width: 9, height: 15 },
       },
     ],
@@ -321,27 +336,27 @@ export const E1A_FAULTS: readonly E1AFaultDefinition[] = [
   },
   {
     id: "short-circuit",
-    title: "Caso 3 · Cortocircuito",
-    prompt: "Señala el camino que produce la falla.",
+    title: "Caso 3 · Fuente en protección",
+    prompt: "La fuente limita la corriente apenas se conecta el circuito. Revisa si existe un recorrido de baja impedancia.",
     asset: {
       sourceFilename: "electronics_E1A_S5_fault_case_short.svg",
       src: "/challenges/electronics/e1a/electronics_E1A_S5_fault_case_short.svg",
-      alt: "Conexión directa entre la línea de alimentación VCC y el retorno GND.",
+      alt: "Líneas de alimentación VCC y GND con tres zonas para diagnóstico.",
     },
     targets: [
       {
         id: "short-loop",
-        accessibleLabel: "Lazo conductor directo entre VCC y GND",
+        accessibleLabel: "Zona A · Camino entre VCC y GND",
         hotspot: { left: 25, top: 40, width: 23, height: 14 },
       },
       {
         id: "empty-center",
-        accessibleLabel: "Zona central vacía",
+        accessibleLabel: "Zona B · Salida hacia la carga",
         hotspot: { left: 49, top: 41, width: 11, height: 16 },
       },
       {
         id: "case-border",
-        accessibleLabel: "Borde derecho del recuadro",
+        accessibleLabel: "Zona C · Entrada de la fuente",
         hotspot: { left: 71, top: 36, width: 9, height: 21 },
       },
     ],
@@ -406,7 +421,6 @@ export const E1A_CHALLENGE = {
   totalSteps: 3,
   completionRule: "all_steps",
   attempts: "unlimited",
-  minimumInterpretationCharacters: 120,
   steps: E1A_STEPS,
 } as const;
 
@@ -444,10 +458,19 @@ export function normalizeE1ASubmission(
   for (const fault of E1A_FAULTS) {
     const rawAnswer = rawCases[fault.id];
     if (!isRecord(rawAnswer)) continue;
+    const targetId =
+      typeof rawAnswer.targetId === "string" &&
+      fault.targets.some((target) => target.id === rawAnswer.targetId)
+        ? rawAnswer.targetId
+        : "";
+    const causeOptionId =
+      typeof rawAnswer.causeOptionId === "string" &&
+      fault.causeOptions.some((option) => option.id === rawAnswer.causeOptionId)
+        ? rawAnswer.causeOptionId
+        : "";
     cases[fault.id] = {
-      targetId: typeof rawAnswer.targetId === "string" ? rawAnswer.targetId : "",
-      causeOptionId:
-        typeof rawAnswer.causeOptionId === "string" ? rawAnswer.causeOptionId : "",
+      targetId,
+      causeOptionId,
       incorrectClicks:
         typeof rawAnswer.incorrectClicks === "number" && Number.isFinite(rawAnswer.incorrectClicks)
           ? Math.max(0, Math.floor(rawAnswer.incorrectClicks))
@@ -459,7 +482,7 @@ export function normalizeE1ASubmission(
 
 export function isE1ADraftReady(submission: E1AStepSubmission): boolean {
   if (submission.stepId === "interpretation") {
-    return normalizedLength(submission.response) >= E1A_CHALLENGE.minimumInterpretationCharacters;
+    return normalizedLength(submission.response) > 0;
   }
   if (submission.stepId === "blocks") {
     return E1A_BLOCKS.every((block) => Boolean(submission.assignments[block.id]));
@@ -484,24 +507,24 @@ function evaluateInterpretation(
   submission: E1AInterpretationSubmission
 ): E1AStepEvaluation {
   const length = normalizedLength(submission.response);
-  const meetsMinimum = length >= E1A_CHALLENGE.minimumInterpretationCharacters;
+  const hasResponse = length > 0;
   return {
     stepId: submission.stepId,
-    isComplete: meetsMinimum,
-    score: meetsMinimum ? 1 : 0,
+    isComplete: hasResponse,
+    score: hasResponse ? 1 : 0,
     maxScore: 1,
-    feedback: meetsMinimum
+    feedback: hasResponse
       ? "Respuesta registrada para revisión. Puedes continuar con la asociación de bloques."
-      : `Desarrolla un poco más la explicación: faltan ${Math.max(0, E1A_CHALLENGE.minimumInterpretationCharacters - length)} caracteres.`,
+      : "Escribe tu lectura del plano para guardarla y continuar.",
     items: [
       {
         itemId: "interpretation-response",
         isAnswered: length > 0,
         isCorrect: null,
-        score: meetsMinimum ? 1 : 0,
+        score: hasResponse ? 1 : 0,
         maxScore: 1,
-        feedback: meetsMinimum
-          ? "Cumple la extensión mínima y queda pendiente de revisión semántica."
+        feedback: hasResponse
+          ? "La respuesta queda pendiente de revisión semántica."
           : "Incluye propósito, flujo de alimentación y función de los bloques.",
       },
     ],

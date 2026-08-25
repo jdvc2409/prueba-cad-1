@@ -60,6 +60,7 @@ interface DetailedChallengeProps {
   readOnly: boolean;
   onSave: (progress: NodeChallengeProgress) => void;
   onComplete: (finalProgress: NodeChallengeProgress) => void;
+  onExit?: () => void;
 }
 
 const ELECTRONICS_CHALLENGE_COMPONENTS: Readonly<
@@ -183,7 +184,10 @@ export function NodeDetailPanel({
 
     if (!node || previousStatus !== "available" || status !== "completed") return;
 
-    const focusTimer = window.setTimeout(() => statusCardRef.current?.focus(), 0);
+    const focusTimer = window.setTimeout(() => {
+      const focusTarget = statusCardRef.current ?? closeButtonRef.current;
+      focusTarget?.focus();
+    }, 0);
     return () => window.clearTimeout(focusTimer);
   }, [node, status]);
 
@@ -233,6 +237,7 @@ export function NodeDetailPanel({
               challengeProgress={challengeProgress}
               onSaveChallengeProgress={onSaveChallengeProgress}
               onCompleteChallenge={onCompleteChallenge}
+              onClose={onClose}
               reduceMotion={reduceMotion}
               statusCardRef={statusCardRef}
             />
@@ -307,6 +312,7 @@ function ChallengeBody({
   challengeProgress,
   onSaveChallengeProgress,
   onCompleteChallenge,
+  onClose,
   reduceMotion,
   statusCardRef,
 }: {
@@ -323,6 +329,7 @@ function ChallengeBody({
     nodeId: string,
     progress: NodeChallengeProgress
   ) => void;
+  onClose: () => void;
   reduceMotion: boolean;
   statusCardRef: RefObject<HTMLElement | null>;
 }) {
@@ -339,6 +346,7 @@ function ChallengeBody({
           readOnly={status === "completed"}
           onSave={(progress) => onSaveChallengeProgress(node.id, progress)}
           onComplete={(progress) => onCompleteChallenge(node.id, progress)}
+          onExit={onClose}
         />
       </div>
     );

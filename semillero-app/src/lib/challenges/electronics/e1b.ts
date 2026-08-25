@@ -55,7 +55,7 @@ export interface E1BStepDefinition {
   readonly title: string;
   readonly eyebrow: string;
   readonly statement: string;
-  readonly asset: E1BAsset;
+  readonly asset?: E1BAsset;
   readonly hints: readonly string[];
 }
 
@@ -92,14 +92,6 @@ export interface E1BStepEvaluation {
   readonly metadata: Readonly<Record<string, string | number | boolean>>;
 }
 
-export const E1B_DATASHEET_ASSET: E1BAsset = {
-  sourceFilename: "electronics_E1B_S1_esp32_datasheet_excerpt.pdf",
-  src: "/challenges/electronics/e1b/electronics_E1B_S1_esp32_datasheet_excerpt.pdf",
-  fallbackSrc:
-    "/challenges/electronics/e1b/electronics_E1B_S1_esp32_datasheet_excerpt.png",
-  alt: "Extracto de referencia del ESP32 con nivel lógico e interfaces principales.",
-};
-
 export const E1B_BOARD_ASSET: E1BAsset = {
   sourceFilename: "electronics_E1B_S2_esp32_board_reference.svg",
   src: "/challenges/electronics/e1b/electronics_E1B_S2_esp32_board_reference.svg",
@@ -119,7 +111,7 @@ export const E1B_DATASHEET_QUESTIONS: readonly E1BClosedQuestion[] = [
     ],
     correctOptionId: "logic-3v3",
     feedback: {
-      correct: "El extracto especifica lógica de 3.3 V.",
+      correct: "El datasheet del ESP32 especifica lógica de 3.3 V.",
       incorrect: "Busca el valor indicado en la sección Alimentación y lógica.",
     },
   },
@@ -148,7 +140,7 @@ export const E1B_DATASHEET_QUESTIONS: readonly E1BClosedQuestion[] = [
     correctOptionId: "lines-i2c",
     feedback: {
       correct: "I²C usa SDA para datos y SCL para reloj.",
-      incorrect: "Ubica SDA/SCL en el apartado de interfaces del extracto.",
+      incorrect: "Ubica SDA/SCL en el apartado de interfaces del datasheet.",
     },
   },
 ] as const;
@@ -224,8 +216,7 @@ export const E1B_STEPS: readonly E1BStepDefinition[] = [
     title: "Consulta el datasheet",
     eyebrow: "Lectura técnica",
     statement:
-      "Usa el extracto de referencia para responder tres preguntas cerradas y explicar qué revisarías antes de conectar un sensor.",
-    asset: E1B_DATASHEET_ASSET,
+      "Busca el datasheet oficial del ESP32, consulta sus especificaciones y responde las preguntas con base en la información que encuentres.",
     hints: [
       "Busca primero los niveles eléctricos; después distingue entradas analógicas y nombres de buses.",
     ],
@@ -251,8 +242,6 @@ export const E1B_CHALLENGE = {
   totalSteps: 2,
   completionRule: "all_steps",
   attempts: "unlimited",
-  minimumCompatibilityReviewCharacters: 60,
-  boundedDatasheetPages: 1,
   steps: E1B_STEPS,
 } as const;
 
@@ -307,8 +296,7 @@ export function isE1BDraftReady(submission: E1BStepSubmission): boolean {
       E1B_DATASHEET_QUESTIONS.every((question) =>
         Boolean(submission.closedAnswers[question.id])
       ) &&
-      normalizedLength(submission.compatibilityReview) >=
-        E1B_CHALLENGE.minimumCompatibilityReviewCharacters
+      normalizedLength(submission.compatibilityReview) > 0
     );
   }
   return (
@@ -341,8 +329,7 @@ function evaluateDatasheet(submission: E1BDatasheetSubmission): E1BStepEvaluatio
     };
   });
   const responseLength = normalizedLength(submission.compatibilityReview);
-  const openReady =
-    responseLength >= E1B_CHALLENGE.minimumCompatibilityReviewCharacters;
+  const openReady = responseLength > 0;
   const openItem: E1BItemEvaluation = {
     itemId: "sensor-compatibility-review",
     isAnswered: responseLength > 0,
@@ -363,8 +350,8 @@ function evaluateDatasheet(submission: E1BDatasheetSubmission): E1BStepEvaluatio
     score,
     maxScore: items.length,
     feedback: isComplete
-      ? "Interpretaste correctamente el extracto; la explicación queda guardada para revisión."
-      : `Obtuviste ${score} de ${items.length}. Consulta nuevamente el extracto y reintenta.`,
+      ? "Interpretaste correctamente el datasheet; la explicación queda guardada para revisión."
+      : `Obtuviste ${score} de ${items.length}. Consulta nuevamente el datasheet oficial y reintenta.`,
     items,
     metadata: {
       closedQuestionsCorrect: closedItems.filter((item) => item.isCorrect).length,

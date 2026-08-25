@@ -11,7 +11,6 @@ import {
 import {
   E1B_BOARD_ASSET,
   E1B_CHALLENGE,
-  E1B_DATASHEET_ASSET,
   E1B_DATASHEET_QUESTIONS,
   E1B_INTERFACE_OPTIONS,
   E1B_PERIPHERALS,
@@ -56,7 +55,6 @@ export function E1BChallenge({
     Partial<Record<E1BStepId, E1BStepEvaluation>>
   >(() => deriveEvaluations(initial));
   const [announcement, setAnnouncement] = useState("");
-  const [pdfZoom, setPdfZoom] = useState(100);
   const progressRef = useRef(initial);
   const onSaveRef = useRef(onSave);
   const onCompleteRef = useRef(onComplete);
@@ -305,7 +303,7 @@ export function E1BChallenge({
 
           <div className="mt-6">
             {stepId === "datasheet" ? (
-              <DatasheetStep draft={draft as E1BDatasheetSubmission} readOnly={readOnly || solved} zoom={pdfZoom} onZoom={setPdfZoom} onChange={changeDraft} evaluation={evaluation} />
+              <DatasheetStep draft={draft as E1BDatasheetSubmission} readOnly={readOnly || solved} onChange={changeDraft} evaluation={evaluation} />
             ) : (
               <InterfacesStep draft={draft as E1BInterfacesSubmission} readOnly={readOnly || solved} onChange={changeDraft} evaluation={evaluation} />
             )}
@@ -341,34 +339,19 @@ export function E1BChallenge({
   );
 }
 
-function DatasheetStep({ draft, readOnly, zoom, onZoom, onChange, evaluation }: { draft: E1BDatasheetSubmission; readOnly: boolean; zoom: number; onZoom: (value: number) => void; onChange: (draft: E1BDatasheetSubmission) => void; evaluation?: E1BStepEvaluation }) {
+function DatasheetStep({ draft, readOnly, onChange, evaluation }: { draft: E1BDatasheetSubmission; readOnly: boolean; onChange: (draft: E1BDatasheetSubmission) => void; evaluation?: E1BStepEvaluation }) {
   return (
-    <div className="grid gap-5 xl:grid-cols-[minmax(22rem,1fr)_minmax(20rem,.82fr)]">
-      <figure className="overflow-hidden rounded-2xl border border-line bg-night/35">
-        <div className="flex items-center justify-between gap-3 border-b border-line p-3">
-          <span className="text-xs font-semibold text-ice">Extracto técnico ESP32 · página 1</span>
-          <div className="flex items-center gap-1" aria-label="Zoom del documento">
-            <button type="button" onClick={() => onZoom(Math.max(75, zoom - 25))} disabled={zoom <= 75} aria-label="Reducir zoom" className="h-9 w-9 rounded-lg border border-line text-cyan disabled:opacity-40">−</button>
-            <span className="w-12 text-center text-[11px] text-muted">{zoom}%</span>
-            <button type="button" onClick={() => onZoom(Math.min(150, zoom + 25))} disabled={zoom >= 150} aria-label="Aumentar zoom" className="h-9 w-9 rounded-lg border border-line text-cyan disabled:opacity-40">+</button>
-          </div>
-        </div>
-        <div className="h-[28rem] overflow-auto bg-white sm:h-[36rem]">
-          <Image
-            src={`${PUBLIC_BASE_PATH}${E1B_DATASHEET_ASSET.fallbackSrc}`}
-            alt={E1B_DATASHEET_ASSET.alt}
-            width={1240}
-            height={1754}
-            className="mx-auto h-auto max-w-none transition-[width]"
-            style={{ width: `${zoom}%` }}
-            priority
-          />
-        </div>
-        <figcaption className="border-t border-line px-4 py-3 text-xs text-muted">
-          Vista acotada a la página de referencia. <a href={`${PUBLIC_BASE_PATH}${E1B_DATASHEET_ASSET.src}`} target="_blank" rel="noreferrer" className="font-semibold text-cyan underline underline-offset-2">Abrir el PDF original en otra pestaña</a>.
-        </figcaption>
-      </figure>
-      <div className="space-y-4">
+    <div className="space-y-5">
+      <section className="rounded-2xl border border-cyan/25 bg-cyan/[0.07] p-5">
+        <p className="text-sm font-semibold text-ink">Tu tarea: encontrar el datasheet oficial</p>
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-muted">
+          Busca el documento <span className="font-semibold text-ice">ESP32 Series Datasheet</span> publicado por Espressif. Consulta allí los niveles eléctricos, el ADC y las interfaces de comunicación antes de responder.
+        </p>
+        <p className="mt-4 rounded-xl border border-white/10 bg-night/35 px-4 py-3 text-xs leading-5 text-slate-300">
+          Verifica que el documento provenga del fabricante y usa sus especificaciones para justificar tus respuestas.
+        </p>
+      </section>
+      <div className="grid gap-4 lg:grid-cols-2">
         {E1B_DATASHEET_QUESTIONS.map((question) => (
           <fieldset key={question.id} disabled={readOnly} className="rounded-2xl border border-line bg-night/25 p-4">
             <legend className="sr-only">{question.prompt}</legend>
@@ -381,9 +364,8 @@ function DatasheetStep({ draft, readOnly, zoom, onZoom, onChange, evaluation }: 
         ))}
         <label className="block rounded-2xl border border-line bg-night/25 p-4">
           <span className="text-sm font-semibold leading-6 text-ink">¿Qué revisarías antes de conectar un sensor?</span>
-          <span className="mt-1 block text-xs leading-5 text-muted">Incluye alimentación, niveles lógicos, referencia de GND y adaptación si fuera necesaria. Mínimo 60 caracteres.</span>
+          <span className="mt-1 block text-xs leading-5 text-muted">Explica tu respuesta teniendo en cuenta alimentación, niveles lógicos, referencia de GND y adaptación si fuera necesaria.</span>
           <textarea value={draft.compatibilityReview} disabled={readOnly} onChange={(event) => onChange({ ...draft, compatibilityReview: event.target.value })} rows={5} maxLength={1500} className="mt-3 w-full rounded-xl border border-line bg-night/45 p-3 text-sm leading-6 text-ink outline-none focus:border-cyan/50 disabled:opacity-70" />
-          <span className="mt-1 block text-right text-[11px] text-muted">{draft.compatibilityReview.trim().length}/60 mínimo</span>
         </label>
       </div>
     </div>

@@ -20,7 +20,6 @@ import {
   isE1AComplete,
   isE1ADraftReady,
   normalizeE1ASubmission,
-  type E1ABlockId,
   type E1ABlocksSubmission,
   type E1AFaultAnswer,
   type E1AFaultId,
@@ -44,6 +43,7 @@ export interface E1AChallengeProps {
   readOnly: boolean;
   onSave: (progress: NodeChallengeProgress) => void;
   onComplete: (finalProgress: NodeChallengeProgress) => void;
+  onExit?: () => void;
 }
 
 type EvaluationMap = Partial<Record<E1AStepId, E1AStepEvaluation>>;
@@ -55,6 +55,7 @@ export function E1AChallenge({
   readOnly,
   onSave,
   onComplete,
+  onExit,
 }: E1AChallengeProps) {
   const initialProgress = useMemo(() => createInitialProgress(savedProgress), [savedProgress]);
   const [progress, setProgress] = useState(initialProgress);
@@ -498,6 +499,22 @@ export function E1AChallenge({
                 Continuar →
               </button>
             )}
+            {currentSolved && !nextStepId && (
+              <div className="flex flex-wrap items-center justify-end gap-3">
+                <span className="text-xs font-bold text-emerald-200">
+                  Reto completado ✓
+                </span>
+                {onExit && (
+                  <button
+                    type="button"
+                    onClick={onExit}
+                    className="min-h-11 rounded-xl border border-emerald-300/30 bg-emerald-400/10 px-5 text-xs font-bold text-emerald-100 transition hover:bg-emerald-400/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300"
+                  >
+                    Volver al árbol
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </footer>
         <p className="sr-only" aria-live="polite">{announcement}</p>
@@ -517,8 +534,6 @@ function InterpretationStep({
   disabled: boolean;
   onChange: (draft: E1AStepSubmission) => void;
 }) {
-  const characterCount = draft.response.trim().replace(/\s+/g, " ").length;
-  const minimum = E1A_CHALLENGE.minimumInterpretationCharacters;
   return (
     <div className="space-y-5">
       <ChallengeImage asset={step.asset} priority />
@@ -541,12 +556,9 @@ function InterpretationStep({
             className="w-full resize-y rounded-xl border border-white/10 bg-[#04131d] px-4 py-3 text-sm leading-6 text-white outline-none transition placeholder:text-slate-600 focus:border-[#5CE1FF]/55 focus:ring-2 focus:ring-[#0A84C7]/20 disabled:opacity-70"
           />
         </label>
-        <div className="mt-2 flex items-center justify-between gap-3 text-[11px]">
-          <span className="text-slate-400">Se guarda automáticamente para el evaluador.</span>
-          <span className={characterCount >= minimum ? "font-bold text-emerald-300" : "text-slate-400"}>
-            {characterCount}/{minimum} caracteres mínimos
-          </span>
-        </div>
+        <p className="mt-2 text-[11px] text-slate-400">
+          Se guarda automáticamente para el evaluador.
+        </p>
       </fieldset>
     </div>
   );
@@ -565,127 +577,113 @@ function BlocksStep({
   disabled: boolean;
   onChange: (draft: E1AStepSubmission) => void;
 }) {
-  const [selectedBlockId, setSelectedBlockId] = useState<E1ABlockId>(
-    E1A_BLOCKS.find((block) => !draft.assignments[block.id])?.id ?? E1A_BLOCKS[0].id
-  );
-  const selectedBlock = E1A_BLOCKS.find((block) => block.id === selectedBlockId) ?? E1A_BLOCKS[0];
-  const assign = (functionId: E1AFunctionId) => {
+  const assignedCount = E1A_BLOCKS.filter((block) => draft.assignments[block.id]).length;
+
+  const assign = (blockId: (typeof E1A_BLOCKS)[number]["id"], functionId: E1AFunctionId) => {
     if (disabled) return;
     onChange({
       ...draft,
-      assignments: { ...draft.assignments, [selectedBlockId]: functionId },
+      assignments: { ...draft.assignments, [blockId]: functionId },
     });
-    const currentIndex = E1A_BLOCKS.findIndex((block) => block.id === selectedBlockId);
-    const nextUnassigned = E1A_BLOCKS.find(
-      (block, index) => index > currentIndex && !draft.assignments[block.id]
-    );
-    if (nextUnassigned) setSelectedBlockId(nextUnassigned.id);
   };
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(280px,0.7fr)]">
-      <figure className="overflow-hidden rounded-2xl border border-white/10 bg-[#04131d]">
-        <div className="relative aspect-[16/9]">
-          <Image
-            src={`${PUBLIC_BASE_PATH}${step.asset.src}`}
-            alt={step.asset.alt}
-            fill
-            sizes="(min-width: 1024px) 65vw, 100vw"
-            className="object-contain"
+    <div className="space-y-5">
+      <ChallengeImage asset={step.asset} />
+
+      <section className="rounded-2xl border border-white/10 bg-white/[0.025] p-4 sm:p-5">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#69dcf8]">
+              Componentes del plano
+            </p>
+            <h4 className="mt-1 text-base font-bold text-white">
+              Elige la función principal de cada bloque
+            </h4>
+            <p className="mt-1 text-xs leading-5 text-slate-400">
+              Los nombres coinciden con el plano superior; no necesitas acertar por una zona invisible.
+            </p>
+          </div>
+          <span className="rounded-full border border-white/10 bg-[#04131d]/70 px-3 py-1.5 text-xs font-bold text-slate-300">
+            {assignedCount} de {E1A_BLOCKS.length} asociados
+          </span>
+        </div>
+
+        <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/[0.07]" aria-hidden="true">
+          <div
+            className="h-full rounded-full bg-gradient-to-r from-[#0A84C7] to-[#5CE1FF] transition-[width] duration-300"
+            style={{ width: `${(assignedCount / E1A_BLOCKS.length) * 100}%` }}
           />
+        </div>
+
+        <div className="mt-5 grid gap-3 md:grid-cols-2">
           {E1A_BLOCKS.map((block) => {
             const assignment = draft.assignments[block.id];
-            const functionLabel = E1A_FUNCTIONS.find((item) => item.id === assignment)?.label;
-            const selected = selectedBlockId === block.id;
+            const selectedFunction = E1A_FUNCTIONS.find((option) => option.id === assignment);
+            const itemEvaluation = evaluation?.items.find((item) => item.itemId === block.id);
+
             return (
-              <button
+              <article
                 key={block.id}
-                type="button"
-                disabled={disabled}
-                onClick={() => setSelectedBlockId(block.id)}
-                aria-label={`${block.accessibleLabel}${functionLabel ? `, asignado a ${functionLabel}` : ", sin asignar"}`}
-                style={block.hotspot}
-                className={`absolute flex items-center justify-center rounded-lg border-2 text-[9px] font-black transition focus-visible:z-20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:text-xs ${
-                  selected
-                    ? "z-10 border-amber-300 bg-amber-300/20 text-amber-100"
-                    : assignment
-                      ? "border-emerald-300/80 bg-emerald-400/15 text-emerald-100"
-                      : "border-[#5CE1FF]/80 bg-[#0A84C7]/12 text-white hover:bg-[#0A84C7]/25"
+                className={`rounded-2xl border p-4 transition ${
+                  itemEvaluation?.isCorrect
+                    ? "border-emerald-400/25 bg-emerald-400/[0.055]"
+                    : itemEvaluation
+                      ? "border-amber-300/25 bg-amber-300/[0.045]"
+                      : assignment
+                        ? "border-[#5CE1FF]/25 bg-[#0A84C7]/[0.065]"
+                        : "border-white/10 bg-[#04131d]/55"
                 }`}
               >
-                {functionLabel ?? block.shortLabel}
-              </button>
-            );
-          })}
-        </div>
-        <figcaption className="border-t border-white/10 px-4 py-3 text-xs text-slate-400">
-          Selecciona un bloque resaltado. La lista lateral funciona también con teclado.
-        </figcaption>
-      </figure>
+                <div className="flex items-start gap-3">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#5CE1FF]/25 bg-[#0A84C7]/15 text-[10px] font-black text-[#8fe8ff]">
+                    {block.shortLabel}
+                  </span>
+                  <div className="min-w-0">
+                    <h5 className="text-sm font-bold text-white">{block.componentName}</h5>
+                    <p className="mt-0.5 text-[11px] leading-4 text-slate-400">
+                      {block.componentDetail}
+                    </p>
+                  </div>
+                </div>
 
-      <aside className="rounded-2xl border border-white/10 bg-white/[0.025] p-4 sm:p-5">
-        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#69dcf8]">
-          Bloque seleccionado
-        </p>
-        <h4 className="mt-2 text-sm font-bold text-white">{selectedBlock.accessibleLabel}</h4>
-        <div className="mt-4 space-y-2" role="radiogroup" aria-label="Función del bloque">
-          {E1A_FUNCTIONS.map((option) => {
-            const checked = draft.assignments[selectedBlockId] === option.id;
-            return (
-              <label
-                key={option.id}
-                className={`block cursor-pointer rounded-xl border px-3 py-3 transition ${
-                  checked
-                    ? "border-[#5CE1FF]/50 bg-[#0A84C7]/15"
-                    : "border-white/10 bg-[#04131d]/60 hover:border-white/20"
-                } ${disabled ? "cursor-default opacity-70" : ""}`}
-              >
-                <span className="flex items-center gap-2 text-xs font-bold text-white">
-                  <input
-                    type="radio"
-                    name="block-function"
-                    value={option.id}
-                    checked={checked}
-                    disabled={disabled}
-                    onChange={() => assign(option.id)}
-                    className="h-4 w-4 accent-[#39C8F0]"
-                  />
-                  {option.label}
-                </span>
-                <span className="mt-1 block pl-6 text-[11px] leading-4 text-slate-400">
-                  {option.description}
-                </span>
-              </label>
+                <label htmlFor={`e1a-function-${block.id}`} className="mt-4 block text-[11px] font-bold text-slate-300">
+                  Función en el sistema
+                </label>
+                <select
+                  id={`e1a-function-${block.id}`}
+                  value={assignment ?? ""}
+                  disabled={disabled}
+                  onChange={(event) => assign(block.id, event.target.value as E1AFunctionId)}
+                  className="mt-2 min-h-11 w-full rounded-xl border border-white/10 bg-[#061925] px-3 text-sm text-white outline-none transition focus:border-[#5CE1FF]/55 focus:ring-2 focus:ring-[#0A84C7]/20 disabled:opacity-70"
+                >
+                  <option value="" disabled>Selecciona una función</option>
+                  {E1A_FUNCTIONS.map((option) => (
+                    <option key={option.id} value={option.id}>{option.label}</option>
+                  ))}
+                </select>
+
+                {selectedFunction && (
+                  <p className="mt-2 text-[11px] leading-4 text-slate-400">
+                    {selectedFunction.description}
+                  </p>
+                )}
+                {itemEvaluation && (
+                  <p className={`mt-3 text-xs font-semibold ${itemEvaluation.isCorrect ? "text-emerald-200" : "text-amber-100"}`}>
+                    {itemEvaluation.feedback}
+                  </p>
+                )}
+              </article>
             );
           })}
         </div>
-        <div className="mt-4 grid grid-cols-7 gap-1" aria-label="Selector alternativo de bloques">
-          {E1A_BLOCKS.map((block) => (
-            <button
-              key={block.id}
-              type="button"
-              onClick={() => setSelectedBlockId(block.id)}
-              className={`min-h-8 rounded-md text-[9px] font-bold ${
-                selectedBlockId === block.id
-                  ? "bg-[#5CE1FF] text-[#04131d]"
-                  : draft.assignments[block.id]
-                    ? "bg-emerald-400/15 text-emerald-200"
-                    : "bg-white/[0.06] text-slate-400"
-              }`}
-            >
-              {block.shortLabel}
-            </button>
-          ))}
-        </div>
-        <p className="mt-3 text-[11px] text-slate-400">
-          {Object.keys(draft.assignments).length}/7 bloques asociados
-        </p>
-        {evaluation && (
-          <p className="mt-3 rounded-xl border border-white/10 bg-[#04131d]/60 px-3 py-2 text-xs text-slate-300">
-            Resultado del conjunto: {evaluation.score}/{evaluation.maxScore}. Ajusta el esquema completo antes de validar otra vez.
+
+        {evaluation && !evaluation.isComplete && (
+          <p className="mt-4 rounded-xl border border-amber-300/20 bg-amber-300/[0.04] px-3 py-3 text-xs leading-5 text-amber-100">
+            Resultado: {evaluation.score}/{evaluation.maxScore}. Las tarjetas marcan cuáles asociaciones debes revisar.
           </p>
         )}
-      </aside>
+      </section>
     </div>
   );
 }
@@ -702,14 +700,18 @@ function FaultsStep({
   onChange: (draft: E1AStepSubmission) => void;
 }) {
   const [activeFaultId, setActiveFaultId] = useState<E1AFaultId>(
-    E1A_FAULTS.find((fault) => !draft.cases[fault.id]?.causeOptionId)?.id ?? E1A_FAULTS[0].id
+    E1A_FAULTS.find(
+      (fault) => !draft.cases[fault.id]?.targetId || !draft.cases[fault.id]?.causeOptionId
+    )?.id ?? E1A_FAULTS[E1A_FAULTS.length - 1].id
   );
   const fault = E1A_FAULTS.find((item) => item.id === activeFaultId) ?? E1A_FAULTS[0];
+  const activeIndex = E1A_FAULTS.findIndex((item) => item.id === activeFaultId);
   const answer: E1AFaultAnswer = draft.cases[activeFaultId] ?? {
     targetId: "",
     causeOptionId: "",
     incorrectClicks: 0,
   };
+
   const updateAnswer = (next: E1AFaultAnswer) => {
     if (disabled) return;
     onChange({ ...draft, cases: { ...draft.cases, [activeFaultId]: next } });
@@ -724,79 +726,108 @@ function FaultsStep({
     });
   };
   const itemEvaluation = evaluation?.items.find((item) => item.itemId === activeFaultId);
+  const answerReady = Boolean(answer.targetId && answer.causeOptionId);
+  const allCasesReady = E1A_FAULTS.every((item) => {
+    const caseAnswer = draft.cases[item.id];
+    return Boolean(caseAnswer?.targetId && caseAnswer.causeOptionId);
+  });
+  const canOpenCase = (index: number) =>
+    index === 0 || E1A_FAULTS.slice(0, index).every((item) => {
+      const caseAnswer = draft.cases[item.id];
+      return Boolean(caseAnswer?.targetId && caseAnswer.causeOptionId);
+    });
+  const nextFault = E1A_FAULTS[activeIndex + 1];
 
   return (
-    <div>
-      <div className="mb-4 grid grid-cols-3 gap-2" role="tablist" aria-label="Casos de falla">
+    <div className="space-y-4">
+      <div className="grid grid-cols-3 gap-2" role="tablist" aria-label="Casos de diagnóstico">
         {E1A_FAULTS.map((item, index) => {
           const completeDraft = Boolean(
             draft.cases[item.id]?.targetId && draft.cases[item.id]?.causeOptionId
           );
+          const available = canOpenCase(index);
           return (
             <button
               key={item.id}
               type="button"
               role="tab"
               aria-selected={item.id === activeFaultId}
+              disabled={!available}
               onClick={() => setActiveFaultId(item.id)}
-              className={`min-h-12 rounded-xl border px-2 text-xs font-bold transition ${
+              className={`min-h-14 rounded-xl border px-2 py-2 text-left transition ${
                 item.id === activeFaultId
                   ? "border-[#5CE1FF]/55 bg-[#0A84C7]/18 text-white"
                   : completeDraft
                     ? "border-emerald-400/20 bg-emerald-400/[0.06] text-emerald-200"
-                    : "border-white/10 bg-white/[0.025] text-slate-400"
+                    : available
+                      ? "border-white/10 bg-white/[0.025] text-slate-400 hover:border-white/20"
+                      : "cursor-not-allowed border-white/[0.06] bg-black/10 text-slate-600"
               }`}
             >
-              Caso {index + 1}
+              <span className="block text-[9px] font-black uppercase tracking-[0.13em]">
+                {completeDraft ? "Respondido" : `Caso ${index + 1}`}
+              </span>
+              <span className="mt-0.5 hidden text-[11px] font-semibold sm:block">
+                {item.title.replace(/^Caso \d+ · /, "")}
+              </span>
             </button>
           );
         })}
       </div>
 
-      <article className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 sm:p-5">
-        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#69dcf8]">
-          {fault.title}
-        </p>
-        <h4 className="mt-2 text-sm font-bold text-white">{fault.prompt}</h4>
-        <figure className="mt-4 overflow-hidden rounded-xl border border-white/10 bg-[#04131d]">
-          <div className="relative aspect-[16/9]">
-            <Image
-              src={`${PUBLIC_BASE_PATH}${fault.asset.src}`}
-              alt={fault.asset.alt}
-              fill
-              sizes="100vw"
-              className="object-contain"
-            />
-            {fault.targets.map((target, index) => {
-              const selected = answer.targetId === target.id;
-              return (
-                <button
-                  key={target.id}
-                  type="button"
-                  disabled={disabled}
-                  onClick={() => selectTarget(target.id)}
-                  aria-label={target.accessibleLabel}
-                  aria-pressed={selected}
-                  style={target.hotspot}
-                  className={`absolute flex items-center justify-center rounded-lg border-2 text-xs font-black transition focus-visible:z-20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${
-                    selected
-                      ? "z-10 border-amber-300 bg-amber-300/25 text-amber-100"
-                      : "border-[#5CE1FF]/65 bg-[#0A84C7]/10 text-white hover:bg-[#0A84C7]/25"
-                  }`}
-                >
-                  {index + 1}
-                </button>
-              );
-            })}
-          </div>
-          <figcaption className="border-t border-white/10 px-4 py-3 text-xs text-slate-400">
-            Elige una de las zonas numeradas; cada selección incorrecta queda registrada.
+      <article className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02]">
+        <div className="p-4 sm:p-5">
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#69dcf8]">
+            Diagnóstico {activeIndex + 1} de {E1A_FAULTS.length}
+          </p>
+          <h4 className="mt-1 font-heading text-lg font-bold text-white">{fault.title}</h4>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">{fault.prompt}</p>
+        </div>
+
+        <figure className="border-y border-white/10 bg-[#04131d] p-3 sm:p-5">
+          <FaultCircuitDiagram faultId={activeFaultId} />
+          <figcaption className="mt-3 text-center text-xs leading-5 text-slate-400">
+            Observa primero el circuito completo. Después responde las dos preguntas debajo del diagrama.
           </figcaption>
         </figure>
 
-        <fieldset className="mt-5">
-          <legend className="text-sm font-bold text-white">{fault.causePrompt}</legend>
-          <div className="mt-3 grid gap-2 sm:grid-cols-3">
+        <div className="space-y-5 p-4 sm:p-5">
+          <fieldset>
+            <legend className="sr-only">Zona del circuito que explica el síntoma</legend>
+            <p aria-hidden="true" className="text-sm font-bold text-white">
+              1. ¿Qué zona revisarías primero?
+            </p>
+            <div className="mt-3 grid gap-2 sm:grid-cols-3">
+              {fault.targets.map((target) => (
+                <label
+                  key={target.id}
+                  className={`flex min-h-14 cursor-pointer items-center gap-3 rounded-xl border px-3 py-3 text-xs leading-5 transition ${
+                    answer.targetId === target.id
+                      ? "border-[#5CE1FF]/50 bg-[#0A84C7]/15 text-white"
+                      : "border-white/10 bg-[#04131d]/55 text-slate-300 hover:border-white/20"
+                  } ${disabled ? "cursor-default opacity-70" : ""}`}
+                >
+                  <input
+                    type="radio"
+                    name={`fault-target-${activeFaultId}`}
+                    value={target.id}
+                    checked={answer.targetId === target.id}
+                    disabled={disabled}
+                    onChange={() => selectTarget(target.id)}
+                    className="h-4 w-4 shrink-0 accent-[#39C8F0]"
+                  />
+                  {target.accessibleLabel}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend className="sr-only">{fault.causePrompt}</legend>
+            <p aria-hidden="true" className="text-sm font-bold text-white">
+              2. {fault.causePrompt}
+            </p>
+            <div className="mt-3 grid gap-2 lg:grid-cols-3">
             {fault.causeOptions.map((option) => (
               <label
                 key={option.id}
@@ -818,24 +849,132 @@ function FaultsStep({
                 {option.label}
               </label>
             ))}
+            </div>
+          </fieldset>
+
+          {itemEvaluation && (
+            <p
+              className={`rounded-xl border px-3 py-3 text-xs leading-5 ${
+                itemEvaluation.isCorrect
+                  ? "border-emerald-400/25 bg-emerald-400/[0.07] text-emerald-200"
+                  : "border-amber-300/20 bg-amber-300/[0.05] text-amber-100"
+              }`}
+            >
+              {itemEvaluation.feedback}
+            </p>
+          )}
+
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
+            <p className="text-xs text-slate-400">
+              {nextFault
+                ? answerReady
+                  ? "Caso respondido. Puedes continuar y volver después si quieres cambiarlo."
+                  : "Responde ambas preguntas para abrir el siguiente caso."
+                : allCasesReady
+                  ? "Los tres casos están respondidos. Ahora valida el paso."
+                  : "Completa ambas preguntas para terminar el diagnóstico."}
+            </p>
+            {nextFault && (
+              <button
+                type="button"
+                disabled={!answerReady}
+                onClick={() => setActiveFaultId(nextFault.id)}
+                className="min-h-10 rounded-xl border border-[#5CE1FF]/30 bg-[#0A84C7]/12 px-4 text-xs font-bold text-[#9cecff] transition hover:bg-[#0A84C7]/20 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Continuar al caso {activeIndex + 2} →
+              </button>
+            )}
           </div>
-        </fieldset>
-        <p className="mt-3 text-[11px] text-slate-400">
-          Clics incorrectos registrados en este caso: {answer.incorrectClicks}
-        </p>
-        {itemEvaluation && (
-          <p
-            className={`mt-4 rounded-xl border px-3 py-3 text-xs leading-5 ${
-              itemEvaluation.isCorrect
-                ? "border-emerald-400/25 bg-emerald-400/[0.07] text-emerald-200"
-                : "border-amber-300/20 bg-amber-300/[0.05] text-amber-100"
-            }`}
-          >
-            {itemEvaluation.feedback}
-          </p>
-        )}
+        </div>
       </article>
     </div>
+  );
+}
+
+function FaultCircuitDiagram({ faultId }: { faultId: E1AFaultId }) {
+  const title = E1A_FAULTS.find((fault) => fault.id === faultId)?.title ?? "Circuito para diagnóstico";
+  const common = { fill: "none", stroke: "#C7D7E2", strokeWidth: 4 } as const;
+  const wire = { fill: "none", stroke: "#39C8F0", strokeWidth: 5 } as const;
+  const mutedWire = { fill: "none", stroke: "#5F7E91", strokeWidth: 4 } as const;
+
+  return (
+    <svg
+      viewBox="0 0 920 360"
+      role="img"
+      aria-label={`Diagrama del ${title.toLowerCase()}`}
+      className="mx-auto block h-auto w-full max-w-5xl"
+    >
+      <rect x="1" y="1" width="918" height="358" rx="24" fill="#071824" stroke="rgba(255,255,255,0.1)" />
+
+      {faultId === "missing-resistor" && (
+        <>
+          <rect x="70" y="115" width="160" height="130" rx="18" fill="#102E41" stroke="#39C8F0" strokeWidth="3" />
+          <text x="150" y="158" textAnchor="middle" className="fill-[#F5FAFD] text-[22px] font-bold">ESP32</text>
+          <text x="150" y="195" textAnchor="middle" className="fill-[#9CB6C8] text-[17px]">GPIO 18 · 3,3 V</text>
+          <line x1="230" y1="180" x2="430" y2="180" {...wire} />
+          <path d="M430 135 L505 180 L430 225 Z" {...common} />
+          <line x1="520" y1="130" x2="520" y2="230" {...common} />
+          <path d="M540 142 l42 -35 M548 174 l42 -35" {...wire} />
+          <line x1="520" y1="180" x2="735" y2="180" {...wire} />
+          <line x1="735" y1="180" x2="735" y2="254" {...mutedWire} />
+          <line x1="695" y1="254" x2="775" y2="254" {...common} />
+          <line x1="707" y1="269" x2="763" y2="269" {...common} />
+          <line x1="720" y1="284" x2="750" y2="284" {...common} />
+          <text x="150" y="92" textAnchor="middle" className="fill-[#69DCF8] text-[18px] font-bold">ZONA A</text>
+          <text x="480" y="92" textAnchor="middle" className="fill-[#69DCF8] text-[18px] font-bold">ZONA B</text>
+          <text x="735" y="92" textAnchor="middle" className="fill-[#69DCF8] text-[18px] font-bold">ZONA C</text>
+          <text x="480" y="300" textAnchor="middle" className="fill-[#9CB6C8] text-[16px]">Rama de salida</text>
+        </>
+      )}
+
+      {faultId === "reverse-polarity" && (
+        <>
+          <rect x="75" y="105" width="180" height="150" rx="18" fill="#102E41" stroke="#39C8F0" strokeWidth="3" />
+          <text x="165" y="150" textAnchor="middle" className="fill-[#F5FAFD] text-[22px] font-bold">FUENTE</text>
+          <text x="165" y="190" textAnchor="middle" className="fill-[#9CB6C8] text-[17px]">5 V</text>
+          <circle cx="225" cy="130" r="13" fill="#071824" stroke="#C7D7E2" strokeWidth="3" />
+          <circle cx="225" cy="230" r="13" fill="#071824" stroke="#C7D7E2" strokeWidth="3" />
+          <text x="225" y="136" textAnchor="middle" className="fill-[#F5FAFD] text-[18px] font-bold">+</text>
+          <text x="225" y="236" textAnchor="middle" className="fill-[#F5FAFD] text-[18px] font-bold">−</text>
+          <rect x="610" y="85" width="230" height="190" rx="20" fill="#102E41" stroke="#39C8F0" strokeWidth="3" />
+          <text x="725" y="137" textAnchor="middle" className="fill-[#F5FAFD] text-[22px] font-bold">MÓDULO</text>
+          <circle cx="630" cy="130" r="13" fill="#071824" stroke="#C7D7E2" strokeWidth="3" />
+          <circle cx="630" cy="230" r="13" fill="#071824" stroke="#C7D7E2" strokeWidth="3" />
+          <text x="663" y="137" className="fill-[#9CB6C8] text-[16px]">VCC</text>
+          <text x="663" y="237" className="fill-[#9CB6C8] text-[16px]">GND</text>
+          <path d="M238 130 C390 130 450 230 617 230" {...wire} />
+          <path d="M238 230 C390 230 450 130 617 130" {...mutedWire} />
+          <line x1="840" y1="180" x2="875" y2="180" {...wire} />
+          <text x="165" y="72" textAnchor="middle" className="fill-[#69DCF8] text-[18px] font-bold">ZONA A</text>
+          <text x="725" y="55" textAnchor="middle" className="fill-[#69DCF8] text-[18px] font-bold">ZONA B</text>
+          <text x="850" y="145" textAnchor="middle" className="fill-[#69DCF8] text-[18px] font-bold">ZONA C</text>
+          <text x="435" y="315" textAnchor="middle" className="fill-[#9CB6C8] text-[16px]">Sigue cada conductor hasta su terminal</text>
+        </>
+      )}
+
+      {faultId === "short-circuit" && (
+        <>
+          <rect x="70" y="105" width="180" height="150" rx="18" fill="#102E41" stroke="#39C8F0" strokeWidth="3" />
+          <text x="160" y="153" textAnchor="middle" className="fill-[#F5FAFD] text-[22px] font-bold">FUENTE</text>
+          <text x="160" y="192" textAnchor="middle" className="fill-[#9CB6C8] text-[17px]">5 V · limitada</text>
+          <line x1="250" y1="125" x2="800" y2="125" {...wire} />
+          <line x1="250" y1="235" x2="800" y2="235" {...mutedWire} />
+          <text x="280" y="105" className="fill-[#F5FAFD] text-[16px] font-bold">VCC</text>
+          <text x="280" y="265" className="fill-[#F5FAFD] text-[16px] font-bold">GND</text>
+          <path d="M445 125 L445 235" {...common} />
+          <circle cx="445" cy="125" r="7" className="fill-[#C7D7E2]" />
+          <circle cx="445" cy="235" r="7" className="fill-[#C7D7E2]" />
+          <rect x="675" y="155" width="165" height="70" rx="14" fill="#102E41" stroke="#C7D7E2" strokeWidth="3" />
+          <text x="758" y="198" textAnchor="middle" className="fill-[#F5FAFD] text-[19px] font-bold">CARGA</text>
+          <line x1="758" y1="125" x2="758" y2="155" {...wire} />
+          <line x1="758" y1="225" x2="758" y2="235" {...mutedWire} />
+          <text x="445" y="82" textAnchor="middle" className="fill-[#69DCF8] text-[18px] font-bold">ZONA A</text>
+          <text x="758" y="82" textAnchor="middle" className="fill-[#69DCF8] text-[18px] font-bold">ZONA B</text>
+          <text x="160" y="72" textAnchor="middle" className="fill-[#69DCF8] text-[18px] font-bold">ZONA C</text>
+          <text x="510" y="315" textAnchor="middle" className="fill-[#9CB6C8] text-[16px]">Compara los recorridos entre las dos líneas</text>
+        </>
+      )}
+    </svg>
   );
 }
 
@@ -848,16 +987,32 @@ function ChallengeImage({
 }) {
   return (
     <figure className="overflow-hidden rounded-2xl border border-white/10 bg-[#04131d]">
-      <Image
-        src={`${PUBLIC_BASE_PATH}${asset.src}`}
-        alt={asset.alt}
-        width={1600}
-        height={900}
-        priority={priority}
-        className="h-auto w-full"
-      />
-      <figcaption className="border-t border-white/10 px-4 py-3 text-xs text-slate-400">
-        Amplía el diagrama desde el navegador si necesitas revisar conexiones pequeñas.
+      <a
+        href={`${PUBLIC_BASE_PATH}${asset.src}`}
+        target="_blank"
+        rel="noreferrer"
+        aria-label="Abrir el plano eléctrico en tamaño completo"
+        className="block focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-[#5CE1FF]"
+      >
+        <Image
+          src={`${PUBLIC_BASE_PATH}${asset.src}`}
+          alt={asset.alt}
+          width={1600}
+          height={900}
+          priority={priority}
+          className="h-auto w-full"
+        />
+      </a>
+      <figcaption className="flex flex-wrap items-center justify-between gap-2 border-t border-white/10 px-4 py-3 text-xs text-slate-400">
+        <span>Revisa el flujo completo de alimentación, control y retorno.</span>
+        <a
+          href={`${PUBLIC_BASE_PATH}${asset.src}`}
+          target="_blank"
+          rel="noreferrer"
+          className="font-bold text-[#8fe8ff] underline decoration-[#5CE1FF]/35 underline-offset-4 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#5CE1FF]"
+        >
+          Abrir plano completo ↗
+        </a>
       </figcaption>
     </figure>
   );
