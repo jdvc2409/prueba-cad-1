@@ -12,7 +12,7 @@ export type E1AStepId = (typeof E1A_STEP_IDS)[number];
 export type E1AFunctionId =
   | "source"
   | "regulation"
-  | "measurement"
+  | "communication"
   | "processing"
   | "driver"
   | "actuation"
@@ -21,7 +21,7 @@ export type E1ABlockId =
   | "battery"
   | "regulator"
   | "mcu"
-  | "sensor"
+  | "bluetooth"
   | "led"
   | "motor-driver"
   | "dc-motor";
@@ -34,7 +34,7 @@ export interface E1AAsset {
 }
 
 export interface E1AHotspot {
-  /** Percentages relative to the original 1600 x 900 artboard. */
+  /** Percentages relative to the asset's own width/height, not currently rendered as an overlay. */
   readonly left: number;
   readonly top: number;
   readonly width: number;
@@ -152,9 +152,9 @@ export const E1A_FUNCTIONS: readonly E1AFunctionOption[] = [
     description: "Acondiciona el voltaje para los circuitos que lo necesitan.",
   },
   {
-    id: "measurement",
-    label: "Medición",
-    description: "Convierte una magnitud del entorno en información utilizable.",
+    id: "communication",
+    label: "Comunicación",
+    description: "Envía y recibe datos con otro dispositivo.",
   },
   {
     id: "processing",
@@ -182,72 +182,72 @@ export const E1A_BLOCKS: readonly E1ABlockDefinition[] = [
   {
     id: "battery",
     shortLabel: "B1",
-    componentName: "Batería",
-    componentDetail: "12 V · alimentación principal",
-    accessibleLabel: "Bloque izquierdo: batería de 12 V",
+    componentName: "Fuente 7V–10V",
+    componentDetail: "Batería / fuente principal del robot",
+    accessibleLabel: "Bloque inferior izquierdo: fuente de 7 a 10 voltios",
     correctFunctionId: "source",
-    hotspot: { left: 7.5, top: 36.7, width: 11.3, height: 13.4 },
+    hotspot: { left: 24.6, top: 88, width: 16.9, height: 9.6 },
   },
   {
     id: "regulator",
     shortLabel: "B2",
-    componentName: "Regulador buck",
-    componentDetail: "Convierte 12 V en 5 V",
-    accessibleLabel: "Segundo bloque: regulador de 5 V",
+    componentName: "LM2596",
+    componentDetail: "Convierte 7–10 V en 5 V regulados para el Arduino",
+    accessibleLabel: "Bloque inferior derecho: regulador LM2596",
     correctFunctionId: "regulation",
-    hotspot: { left: 23.7, top: 36.7, width: 13.2, height: 13.4 },
+    hotspot: { left: 78.1, top: 88.9, width: 11.3, height: 8.4 },
   },
   {
     id: "mcu",
     shortLabel: "B3",
-    componentName: "Microcontrolador ESP32",
-    componentDetail: "Procesa entradas y genera señales de control",
-    accessibleLabel: "Bloque central grande: microcontrolador",
+    componentName: "Arduino Nano",
+    componentDetail: "Procesa entradas y genera las señales de control",
+    accessibleLabel: "Bloque central: Arduino Nano",
     correctFunctionId: "processing",
-    hotspot: { left: 43.7, top: 31.6, width: 16.3, height: 23.5 },
+    hotspot: { left: 42.6, top: 46.7, width: 19.1, height: 8.4 },
   },
   {
-    id: "sensor",
+    id: "bluetooth",
     shortLabel: "B4",
-    componentName: "Sensor ultrasónico",
-    componentDetail: "Entrega las señales TRIG y ECHO",
-    accessibleLabel: "Bloque superior derecho: sensor ultrasónico",
-    correctFunctionId: "measurement",
-    hotspot: { left: 69, top: 30, width: 11.7, height: 12.3 },
+    componentName: "HC-05",
+    componentDetail: "Módulo Bluetooth: TX/RX con el Arduino",
+    accessibleLabel: "Bloque izquierdo: módulo Bluetooth HC-05",
+    correctFunctionId: "communication",
+    hotspot: { left: 9.3, top: 45.5, width: 11.5, height: 9.8 },
   },
   {
     id: "led",
     shortLabel: "B5",
-    componentName: "LED de estado",
-    componentDetail: "Indica visualmente el estado del robot",
-    accessibleLabel: "Bloque medio derecho: LED de estado",
+    componentName: "Matriz LED (×2)",
+    componentDetail: "Muestra información visual mediante CLK, CS y DIN",
+    accessibleLabel: "Bloques superiores: matrices LED en cascada",
     correctFunctionId: "indicator",
-    hotspot: { left: 69, top: 47.7, width: 11.7, height: 12.4 },
+    hotspot: { left: 45.9, top: 1.2, width: 11.5, height: 31.1 },
   },
   {
     id: "motor-driver",
     shortLabel: "B6",
-    componentName: "Driver de motor",
-    componentDetail: "Adapta las señales del ESP32 a la etapa de potencia",
-    accessibleLabel: "Bloque inferior derecho: driver de motor",
+    componentName: "L298N mini",
+    componentDetail: "Adapta las señales del Arduino a la potencia de los motores",
+    accessibleLabel: "Bloque inferior central: driver L298N mini",
     correctFunctionId: "driver",
-    hotspot: { left: 64.3, top: 70, width: 13.9, height: 12.4 },
+    hotspot: { left: 48.6, top: 72.5, width: 11.5, height: 9 },
   },
   {
     id: "dc-motor",
     shortLabel: "B7",
-    componentName: "Motor DC",
-    componentDetail: "Convierte energía eléctrica en movimiento",
-    accessibleLabel: "Círculo del extremo derecho: motor DC",
+    componentName: "Motores DC (×2)",
+    componentDetail: "Convierten energía eléctrica en el movimiento de las ruedas",
+    accessibleLabel: "Círculos inferiores: motor izquierdo y motor derecho",
     correctFunctionId: "actuation",
-    hotspot: { left: 84.1, top: 69.8, width: 7, height: 12.8 },
+    hotspot: { left: 33.8, top: 72.1, width: 8.3, height: 9.1 },
   },
 ] as const;
 
 const INTERPRETATION_ASSET: E1AAsset = {
-  sourceFilename: "electronics_E1A_S1_robot_schematic_simple.svg",
-  src: "/challenges/electronics/e1a/electronics_E1A_S1_robot_schematic_simple.svg",
-  alt: "Plano eléctrico por bloques de un robot: batería de 12 voltios, regulador, ESP32, sensor, LED, driver y motor con sus conexiones de alimentación y señal.",
+  sourceFilename: "electronics_E1A_S1_robot_schematic.png",
+  src: "/challenges/electronics/e1a/electronics_E1A_S1_robot_schematic.png",
+  alt: "Plano eléctrico de un robot: fuente de 7 a 10 voltios y regulador LM2596 alimentan un Arduino Nano, que controla dos matrices LED en cascada, un módulo Bluetooth HC-05 y un driver L298N mini conectado a dos motores DC.",
 };
 
 const BLOCKS_ASSET: E1AAsset = {
@@ -385,7 +385,7 @@ export const E1A_STEPS: readonly E1AStepDefinition[] = [
       "Explica qué hace el sistema, cómo fluye la alimentación y qué función cumple cada bloque. Tu respuesta será revisada por una persona.",
     asset: INTERPRETATION_ASSET,
     hints: [
-      "Recorre el esquema de izquierda a derecha: fuente, acondicionamiento, decisión, entradas y salidas.",
+      "Sigue primero la energía desde la fuente de 7–10 V y el LM2596 hasta el Arduino Nano; desde ahí identifica qué señales salen hacia el HC-05, la matriz LED y el L298N con los motores.",
     ],
   },
   {

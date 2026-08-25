@@ -552,7 +552,7 @@ function InterpretationStep({
             disabled={disabled}
             onChange={(event) => onChange({ ...draft, response: event.target.value })}
             rows={8}
-            placeholder="Describe el recorrido desde la batería hasta el motor e identifica las ramas de medición e indicación…"
+            placeholder="Describe el recorrido desde la fuente hasta los motores e identifica las ramas de comunicación e indicación…"
             className="w-full resize-y rounded-xl border border-white/10 bg-[#04131d] px-4 py-3 text-sm leading-6 text-white outline-none transition placeholder:text-slate-600 focus:border-[#5CE1FF]/55 focus:ring-2 focus:ring-[#0A84C7]/20 disabled:opacity-70"
           />
         </label>
@@ -997,8 +997,8 @@ function ChallengeImage({
         <Image
           src={`${PUBLIC_BASE_PATH}${asset.src}`}
           alt={asset.alt}
-          width={1600}
-          height={900}
+          width={915}
+          height={835}
           priority={priority}
           className="h-auto w-full"
         />
