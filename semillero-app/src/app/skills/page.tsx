@@ -83,6 +83,8 @@ function TreeCanvas() {
     hydrated,
     sessionActive,
     completeNode,
+    completeChallenge,
+    saveChallengeProgress,
     endSession,
   } = useAppState();
   const [overview, setOverview] = useState(false);
@@ -373,6 +375,9 @@ function TreeCanvas() {
       prereqTitles={prereqTitles}
       onClose={() => setSelectedId(null)}
       onComplete={handleComplete}
+      challengeProgress={selectedId ? state.challengeProgress[selectedId] : undefined}
+      onSaveChallengeProgress={saveChallengeProgress}
+      onCompleteChallenge={completeChallenge}
     />
   );
 

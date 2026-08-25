@@ -63,13 +63,55 @@ export interface IntroItem {
   createdAt: number;
 }
 
+export type JsonPrimitive = string | number | boolean | null;
+export type JsonValue =
+  | JsonPrimitive
+  | JsonValue[]
+  | { [key: string]: JsonValue };
+
+export interface ChallengeAttempt {
+  id: string;
+  nodeId: string;
+  stepId: string;
+  attemptNumber: number;
+  startedAt: number;
+  submittedAt: number;
+  durationSeconds: number;
+  answer: JsonValue;
+  isCorrect: boolean | null;
+  hintsUsed: number;
+  score?: number;
+  metadata?: Record<string, string | number | boolean>;
+}
+
+export interface ChallengeStepProgress {
+  draft: JsonValue;
+  attempts: ChallengeAttempt[];
+  revealedHints: number;
+  totalActiveSeconds: number;
+  solvedAt: number | null;
+}
+
+export interface NodeChallengeProgress {
+  nodeId: string;
+  currentStepId: string;
+  shuffleSeed: number;
+  startedAt: number;
+  updatedAt: number;
+  completedAt: number | null;
+  steps: Record<string, ChallengeStepProgress>;
+  analytics: Record<string, string | number | boolean>;
+}
+
 export interface AppState {
+  schemaVersion: 2;
   profile: CandidateProfile;
   introduction: IntroItem[];
   registrationStep: 1 | 2;
   onboardingCompleted: boolean;
   progress: Record<string, NodeStatus>;
   completedAt: Record<string, number>;
+  challengeProgress: Record<string, NodeChallengeProgress>;
   submitted: boolean;
   submittedAt: number | null;
 }

@@ -67,7 +67,7 @@ export const SKILL_NODES: SkillNodeDef[] = [
 
   // Electrónica
   n("E0", "electronics", 0, 0, "Encuentra qué no cuadra", "fundamentos",
-    "Encuentra la falla en un circuito sencillo: LED invertido, resistencia faltante, polaridad o alimentación incorrecta.", []),
+    "Recorre cinco minirretos sobre voltaje, corriente, polaridad, Ley de Ohm, potencia y símbolos eléctricos.", []),
   n("E1A", "electronics", 1, -1, "Haz que los números cierren", "sub",
     "Resuelve problemas cortos de Ley de Ohm, potencia, divisor de tensión y resistencia para LED.", ["E0"]),
   n("E1B", "electronics", 1, 1, "Habla con el microcontrolador", "sub",

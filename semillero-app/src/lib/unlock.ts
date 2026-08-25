@@ -17,7 +17,10 @@ export function computeStatus(
   const node = SKILL_NODES.find((item) => item.id === nodeId);
   if (!node) return "locked";
   if (node.requires.length === 0) return "available";
-  const unlocked = node.requires.some((reqId) => progress[reqId] === "completed");
+  // `requires` contains every challenge from the preceding level in this
+  // branch. A split level is a single gate: completing only one path must not
+  // unlock the next level.
+  const unlocked = node.requires.every((reqId) => progress[reqId] === "completed");
   return unlocked ? "available" : "locked";
 }
 

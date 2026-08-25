@@ -15,13 +15,16 @@ registro con validaciones académicas, acceso local para reanudar, presentación
 libre multimodal y un árbol de habilidades interactivo con 53 nodos técnicos
 más el reto transversal de Integración Robótica.
 
-Los retos en esta etapa son **prototipos visuales**: al hacer clic en un nodo
-se abre una vista amplia con título, descripción parcial, modalidad, formatos de
-entrega y estado. El botón "Registrar mi entrega" simula la entrega, marca el
-reto como resuelto y desbloquea las siguientes rutas. Las conexiones conservan
-el color de su rama y muestran el flujo desde el centro hacia los nuevos nodos.
-El contenido interactivo definitivo de cada reto (tipos A–J del motor) se
-implementará en una siguiente etapa.
+El primer reto de Electrónica, **E0 — Encuentra qué no cuadra**, ya cuenta con
+una experiencia interactiva de cinco pasos sobre voltaje, corriente, polaridad,
+Ley de Ohm/potencia y símbolos. Guarda respuestas, reintentos, pistas y tiempo
+activo en el dispositivo, y sólo completa el nodo al resolver los cinco pasos.
+Los demás retos conservan por ahora su vista de prototipo con título,
+descripción, modalidad y formato de entrega.
+
+La progresión exige completar todos los retos de un nivel antes de abrir el
+siguiente dentro de cada rama. Las conexiones conservan el color de su rama y
+muestran el flujo desde el centro hacia los nuevos nodos.
 
 No incluye todavía: autenticación real, backend/base de datos, dashboard del
 evaluador ni panel administrativo. El acceso actual compara el correo contra el

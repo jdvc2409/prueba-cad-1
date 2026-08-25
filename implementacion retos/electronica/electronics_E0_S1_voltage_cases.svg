@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+<rect width="1600" height="900" fill="#071824"/>
+<defs>
+  <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+    <feGaussianBlur stdDeviation="6" result="blur"/>
+    <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+  <style>
+    .title{font:700 46px 'Inter',Arial,sans-serif;fill:#F5FAFD}
+    .sub{font:400 23px 'Inter',Arial,sans-serif;fill:#9CB6C8}
+    .cardTitle{font:700 27px 'Inter',Arial,sans-serif;fill:#F5FAFD}
+    .body{font:400 21px 'Inter',Arial,sans-serif;fill:#F5FAFD}
+    .small{font:400 18px 'Inter',Arial,sans-serif;fill:#9CB6C8}
+    .label{font:700 18px 'Inter',Arial,sans-serif;fill:#39C8F0;letter-spacing:1.2px}
+    .value{font:700 31px 'Inter',Arial,sans-serif;fill:#F5FAFD}
+    .wire{stroke:#39C8F0;stroke-width:5;fill:none;stroke-linecap:round;stroke-linejoin:round}
+    .wireDim{stroke:#24516A;stroke-width:4;fill:none;stroke-linecap:round}
+  </style>
+</defs>
+
+<text x="90" y="90" class="label">E0 · FUNDAMENTOS</text>
+<text x="90" y="148" class="title">¿Qué cambia cuando cambia el voltaje?</text>
+<text x="90" y="192" class="sub">Compara el voltaje aplicado con el rango esperado del componente.</text>
+
+<!-- Card 1 -->
+<rect x="75" y="250" rx="28" width="455" height="520" fill="#0D2534" stroke="#24516A" stroke-width="2"/>
+<text x="112" y="302" class="cardTitle">Caso A · LED</text>
+<text x="112" y="340" class="small">Componente pensado para ~2 V</text>
+<circle cx="300" cy="470" r="58" fill="none" stroke="#39C8F0" stroke-width="5"/>
+<path d="M270 445 L330 470 L270 495 Z" fill="none" stroke="#F5FAFD" stroke-width="5"/>
+<line x1="338" y1="435" x2="338" y2="505" stroke="#F5FAFD" stroke-width="5"/>
+<path d="M350 442 l30 -25 M360 465 l30 -25" stroke="#39C8F0" stroke-width="4"/>
+<line x1="300" y1="395" x2="300" y2="350" class="wire"/>
+<line x1="300" y1="528" x2="300" y2="585" class="wire"/>
+<rect x="205" y="590" width="190" height="62" rx="16" fill="#102E41" stroke="#0A84C7" stroke-width="2"/>
+<text x="300" y="631" text-anchor="middle" class="value">Fuente: 5 V</text>
+<text x="112" y="710" class="body">¿Qué esperas que ocurra?</text>
+
+<!-- Card 2 -->
+<rect x="572" y="250" rx="28" width="455" height="520" fill="#0D2534" stroke="#24516A" stroke-width="2"/>
+<text x="609" y="302" class="cardTitle">Caso B · Motor DC</text>
+<text x="609" y="340" class="small">Motor nominal de 12 V</text>
+<circle cx="800" cy="470" r="72" fill="none" stroke="#39C8F0" stroke-width="5"/>
+<text x="800" y="482" text-anchor="middle" class="value">M</text>
+<line x1="800" y1="398" x2="800" y2="350" class="wire"/>
+<line x1="800" y1="542" x2="800" y2="585" class="wire"/>
+<rect x="705" y="590" width="190" height="62" rx="16" fill="#102E41" stroke="#0A84C7" stroke-width="2"/>
+<text x="800" y="631" text-anchor="middle" class="value">Fuente: 3 V</text>
+<text x="609" y="710" class="body">¿Arranca y entrega torque normal?</text>
+
+<!-- Card 3 -->
+<rect x="1069" y="250" rx="28" width="455" height="520" fill="#0D2534" stroke="#24516A" stroke-width="2"/>
+<text x="1106" y="302" class="cardTitle">Caso C · Sensor</text>
+<text x="1106" y="340" class="small">Alimentación máxima: 3.3 V</text>
+<rect x="1200" y="405" width="190" height="125" rx="18" fill="#102E41" stroke="#39C8F0" stroke-width="4"/>
+<circle cx="1240" cy="450" r="15" fill="#39C8F0"/>
+<circle cx="1350" cy="450" r="15" fill="#39C8F0"/>
+<text x="1295" y="505" text-anchor="middle" class="body">SENSOR</text>
+<line x1="1295" y1="405" x2="1295" y2="350" class="wire"/>
+<line x1="1295" y1="530" x2="1295" y2="585" class="wire"/>
+<rect x="1200" y="590" width="190" height="62" rx="16" fill="#102E41" stroke="#EF6A6A" stroke-width="2"/>
+<text x="1295" y="631" text-anchor="middle" class="value">Fuente: 12 V</text>
+<text x="1106" y="710" class="body">¿Es una alimentación segura?</text>
+
+<text x="800" y="838" text-anchor="middle" class="small">La interfaz final presenta una pregunta debajo de cada tarjeta; este asset funciona como soporte visual.</text>
+
+</svg>

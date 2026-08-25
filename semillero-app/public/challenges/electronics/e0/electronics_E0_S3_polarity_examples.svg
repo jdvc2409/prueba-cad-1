@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+<rect width="1600" height="900" fill="#071824"/>
+<defs>
+  <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+    <feGaussianBlur stdDeviation="6" result="blur"/>
+    <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+  <style>
+    .title{font:700 46px 'Inter',Arial,sans-serif;fill:#F5FAFD}
+    .sub{font:400 23px 'Inter',Arial,sans-serif;fill:#9CB6C8}
+    .cardTitle{font:700 27px 'Inter',Arial,sans-serif;fill:#F5FAFD}
+    .body{font:400 21px 'Inter',Arial,sans-serif;fill:#F5FAFD}
+    .small{font:400 18px 'Inter',Arial,sans-serif;fill:#9CB6C8}
+    .label{font:700 18px 'Inter',Arial,sans-serif;fill:#39C8F0;letter-spacing:1.2px}
+    .value{font:700 31px 'Inter',Arial,sans-serif;fill:#F5FAFD}
+    .wire{stroke:#39C8F0;stroke-width:5;fill:none;stroke-linecap:round;stroke-linejoin:round}
+    .wireDim{stroke:#24516A;stroke-width:4;fill:none;stroke-linecap:round}
+  </style>
+</defs>
+
+<text x="90" y="90" class="label">E0 · FUNDAMENTOS</text>
+<text x="90" y="148" class="title">¿Qué componentes tienen polaridad?</text>
+<text x="90" y="192" class="sub">Selecciona los elementos donde invertir terminales cambia el comportamiento o puede causar daño.</text>
+
+<!-- LED -->
+<rect x="90" y="275" rx="28" width="330" height="410" fill="#0D2534" stroke="#24516A" stroke-width="2"/>
+<text x="255" y="330" text-anchor="middle" class="cardTitle">LED</text>
+<circle cx="255" cy="455" r="70" fill="none" stroke="#39C8F0" stroke-width="5"/>
+<path d="M220 425 L282 455 L220 485 Z" fill="none" stroke="#F5FAFD" stroke-width="5"/>
+<line x1="292" y1="412" x2="292" y2="498" stroke="#F5FAFD" stroke-width="5"/>
+<path d="M310 430 l33 -28 M320 457 l33 -28" stroke="#39C8F0" stroke-width="4"/>
+<text x="255" y="585" text-anchor="middle" class="small">Ánodo / cátodo</text>
+<circle cx="255" cy="635" r="18" fill="none" stroke="#24516A" stroke-width="3"/>
+
+<!-- Battery -->
+<rect x="455" y="275" rx="28" width="330" height="410" fill="#0D2534" stroke="#24516A" stroke-width="2"/>
+<text x="620" y="330" text-anchor="middle" class="cardTitle">Batería</text>
+<line x1="570" y1="420" x2="570" y2="500" stroke="#F5FAFD" stroke-width="7"/>
+<line x1="615" y1="395" x2="615" y2="525" stroke="#F5FAFD" stroke-width="7"/>
+<line x1="660" y1="420" x2="660" y2="500" stroke="#F5FAFD" stroke-width="7"/>
+<text x="610" y="375" class="value">+</text>
+<text x="666" y="375" class="value">−</text>
+<text x="620" y="585" text-anchor="middle" class="small">Terminal + / −</text>
+<circle cx="620" cy="635" r="18" fill="none" stroke="#24516A" stroke-width="3"/>
+
+<!-- Capacitor -->
+<rect x="820" y="275" rx="28" width="330" height="410" fill="#0D2534" stroke="#24516A" stroke-width="2"/>
+<text x="985" y="330" text-anchor="middle" class="cardTitle">Capacitor electrolítico</text>
+<line x1="945" y1="415" x2="945" y2="505" stroke="#F5FAFD" stroke-width="7"/>
+<path d="M1020 415 Q970 460 1020 505" fill="none" stroke="#F5FAFD" stroke-width="7"/>
+<text x="912" y="394" class="value">+</text>
+<text x="985" y="585" text-anchor="middle" class="small">Componente polarizado</text>
+<circle cx="985" cy="635" r="18" fill="none" stroke="#24516A" stroke-width="3"/>
+
+<!-- Resistor -->
+<rect x="1185" y="275" rx="28" width="330" height="410" fill="#0D2534" stroke="#24516A" stroke-width="2"/>
+<text x="1350" y="330" text-anchor="middle" class="cardTitle">Resistencia</text>
+<path d="M1245 458 L1270 430 L1300 486 L1330 430 L1360 486 L1390 430 L1420 458" fill="none" stroke="#F5FAFD" stroke-width="6" stroke-linejoin="round"/>
+<line x1="1220" y1="458" x2="1245" y2="458" class="wireDim"/>
+<line x1="1420" y1="458" x2="1470" y2="458" class="wireDim"/>
+<text x="1350" y="585" text-anchor="middle" class="small">Resistencia común</text>
+<circle cx="1350" cy="635" r="18" fill="none" stroke="#24516A" stroke-width="3"/>
+
+<rect x="335" y="770" width="930" height="66" rx="18" fill="#102E41" stroke="#24516A" stroke-width="2"/>
+<text x="800" y="812" text-anchor="middle" class="body">UI prevista: tarjetas seleccionables + check visual sólo después de enviar la respuesta</text>
+
+</svg>

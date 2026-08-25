@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { E0Challenge } from "@/components/challenges/electronics/E0Challenge";
 import { BranchIcon } from "@/components/icons/BranchIcon";
 import {
   DELIVERY_FORMAT_LABELS,
@@ -10,7 +11,11 @@ import {
   type DeliveryFormat,
 } from "@/lib/challengePresentation";
 import { BRANCHES } from "@/lib/data/branches";
-import type { NodeStatus, SkillNodeDef } from "@/lib/types";
+import type {
+  NodeChallengeProgress,
+  NodeStatus,
+  SkillNodeDef,
+} from "@/lib/types";
 
 const STATUS_COPY: Record<
   NodeStatus,
@@ -32,7 +37,7 @@ const STATUS_COPY: Record<
     label: "Bloqueado",
     eyebrow: "Todavía no disponible",
     detail:
-      "Completa al menos uno de los retos previos indicados para habilitar esta experiencia.",
+      "Completa todos los retos del nivel anterior para habilitar esta experiencia.",
   },
 };
 
@@ -42,12 +47,24 @@ export function NodeDetailPanel({
   prereqTitles,
   onClose,
   onComplete,
+  challengeProgress,
+  onSaveChallengeProgress,
+  onCompleteChallenge,
 }: {
   node: SkillNodeDef | null;
   status: NodeStatus;
   prereqTitles: string[];
   onClose: () => void;
   onComplete: (id: string) => void;
+  challengeProgress?: NodeChallengeProgress;
+  onSaveChallengeProgress: (
+    nodeId: string,
+    progress: NodeChallengeProgress
+  ) => void;
+  onCompleteChallenge: (
+    nodeId: string,
+    progress: NodeChallengeProgress
+  ) => void;
 }) {
   const [mounted, setMounted] = useState(false);
   const dialogRef = useRef<HTMLElement>(null);
@@ -164,7 +181,9 @@ export function NodeDetailPanel({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 24, scale: 0.985 }}
             transition={{ duration: reduceMotion ? 0 : 0.34, ease: [0.16, 1, 0.3, 1] }}
-            className="relative z-10 flex max-h-[calc(100dvh-1rem)] w-full max-w-5xl flex-col overflow-hidden rounded-t-3xl border border-line bg-[#081f32] shadow-[0_32px_100px_rgba(0,0,0,0.55)] outline-none sm:max-h-[calc(100dvh-3rem)] sm:rounded-3xl"
+            className={`relative z-10 flex max-h-[calc(100dvh-1rem)] w-full flex-col overflow-hidden rounded-t-3xl border border-line bg-[#081f32] shadow-[0_32px_100px_rgba(0,0,0,0.55)] outline-none sm:max-h-[calc(100dvh-3rem)] sm:rounded-3xl ${
+              node.id === "E0" ? "max-w-7xl" : "max-w-5xl"
+            }`}
           >
             <ChallengeHeader
               node={node}
@@ -178,6 +197,9 @@ export function NodeDetailPanel({
               status={status}
               prereqTitles={prereqTitles}
               onComplete={onComplete}
+              challengeProgress={challengeProgress}
+              onSaveChallengeProgress={onSaveChallengeProgress}
+              onCompleteChallenge={onCompleteChallenge}
               reduceMotion={reduceMotion}
               statusCardRef={statusCardRef}
             />
@@ -249,6 +271,9 @@ function ChallengeBody({
   status,
   prereqTitles,
   onComplete,
+  challengeProgress,
+  onSaveChallengeProgress,
+  onCompleteChallenge,
   reduceMotion,
   statusCardRef,
 }: {
@@ -256,12 +281,34 @@ function ChallengeBody({
   status: NodeStatus;
   prereqTitles: string[];
   onComplete: (id: string) => void;
+  challengeProgress?: NodeChallengeProgress;
+  onSaveChallengeProgress: (
+    nodeId: string,
+    progress: NodeChallengeProgress
+  ) => void;
+  onCompleteChallenge: (
+    nodeId: string,
+    progress: NodeChallengeProgress
+  ) => void;
   reduceMotion: boolean;
   statusCardRef: RefObject<HTMLElement | null>;
 }) {
   const branch = BRANCHES[node.branchId];
   const presentation = getChallengePresentation(node);
   const statusCopy = STATUS_COPY[status];
+
+  if (node.id === "E0" && status !== "locked") {
+    return (
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 sm:p-5 lg:p-6">
+        <E0Challenge
+          savedProgress={challengeProgress}
+          readOnly={status === "completed"}
+          onSave={(progress) => onSaveChallengeProgress(node.id, progress)}
+          onComplete={(progress) => onCompleteChallenge(node.id, progress)}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="overflow-y-auto overscroll-contain p-5 sm:p-7 lg:p-8">
