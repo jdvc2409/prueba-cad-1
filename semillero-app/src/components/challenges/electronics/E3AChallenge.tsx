@@ -467,7 +467,13 @@ function SeparationStep({ draft, evaluation, disabled, onChange }: { draft: E3AS
   const remaining = Math.max(0, step.minimumCharacters - draft.explanation.trim().length);
   return (
     <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(20rem,.95fr)]">
-      <figure className="overflow-hidden rounded-2xl border border-line bg-surface/30"><Image src={`${PUBLIC_BASE_PATH}${step.asset.src}`} alt={step.asset.alt} width={1600} height={900} className="h-auto w-full" /><figcaption className="border-t border-line px-4 py-3 text-xs leading-5 text-muted">La separación de rieles no elimina la necesidad de diseñar correctamente referencias, retornos y protecciones.</figcaption></figure>
+      <figure className="overflow-hidden rounded-2xl border border-line bg-surface/30">
+        <Image src={`${PUBLIC_BASE_PATH}${step.asset.src}`} alt={step.asset.alt} width={1190} height={640} className="h-auto w-full" />
+        <figcaption className="border-t border-line px-4 py-3 text-xs leading-5 text-muted">
+          <span className="block font-semibold text-ink">Distribución sugerida entre motores, lógica y servos.</span>
+          <span className="mt-1 block">La separación de rieles no elimina la necesidad de diseñar correctamente referencias, retornos y protecciones.</span>
+        </figcaption>
+      </figure>
       <div className="rounded-2xl border border-line bg-surface/25 p-4 sm:p-5">
         <label htmlFor="e3a-separation" className="text-sm font-semibold text-ink">Defiende la arquitectura</label>
         <p id="e3a-separation-help" className="mt-1 text-xs leading-5 text-muted">Incluye ruido, transitorios, brownouts o caídas de tensión y estabilidad. La revisión de contenido será manual.</p>
