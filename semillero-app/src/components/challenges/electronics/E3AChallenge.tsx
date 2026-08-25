@@ -12,11 +12,14 @@ import {
   E3A_CHALLENGE,
   E3A_CONSUMPTION_ROWS,
   E3A_QUESTIONS,
+  E3A_RESEARCH_MIN_CHARS,
+  E3A_RESEARCH_TOPICS,
   E3A_STEP_IDS,
   createE3ADraft,
   evaluateE3A,
   type E3ADimensioningSubmission,
   type E3AEvaluation,
+  type E3AResearchSubmission,
   type E3ASeparationSubmission,
   type E3AStepId,
   type E3ASubmission,
@@ -342,7 +345,14 @@ export function E3AChallenge({
         </h3>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-muted">{E3A_CHALLENGE.steps[currentStepId].statement}</p>
 
-        {currentStepId === "dimensioning" ? (
+        {currentStepId === "research" ? (
+          <ResearchStep
+            draft={currentDraft as E3AResearchSubmission}
+            evaluation={currentEvaluation}
+            disabled={readOnly || currentSolved}
+            onChange={changeDraft}
+          />
+        ) : currentStepId === "dimensioning" ? (
           <DimensioningStep
             draft={currentDraft as E3ADimensioningSubmission}
             evaluation={currentEvaluation}
@@ -378,7 +388,7 @@ export function E3AChallenge({
                 onClick={submitStep}
                 className="min-h-11 rounded-xl bg-action px-5 text-sm font-bold text-white transition hover:bg-tech focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan disabled:cursor-not-allowed disabled:opacity-40"
               >
-                {currentStepId === "rail-separation" ? "Registrar explicación" : "Comprobar decisiones"}
+                {submitLabel(currentStepId)}
               </button>
             )}
             {currentSolved && E3A_STEP_IDS.indexOf(currentStepId) < E3A_STEP_IDS.length - 1 && (
@@ -394,14 +404,40 @@ export function E3AChallenge({
   );
 }
 
+function ResearchStep({ draft, evaluation, disabled, onChange }: { draft: E3AResearchSubmission; evaluation?: E3AEvaluation; disabled: boolean; onChange: (draft: E3AResearchSubmission) => void }) {
+  return (
+    <div className="mt-6 space-y-4">
+      {E3A_RESEARCH_TOPICS.map((topic) => {
+        const value = draft.answers[topic.id] ?? "";
+        const remaining = Math.max(0, E3A_RESEARCH_MIN_CHARS - value.trim().length);
+        const item = evaluation?.items.find((candidate) => candidate.id === topic.id);
+        const fieldId = `e3a-research-${topic.id}`;
+        return (
+          <div key={topic.id} className="rounded-2xl border border-line bg-surface/25 p-4 sm:p-5">
+            <label htmlFor={fieldId} className="text-sm font-semibold text-ink">{topic.title}</label>
+            <p id={`${fieldId}-help`} className="mt-1 text-xs leading-5 text-muted">{topic.prompt}</p>
+            <textarea
+              id={fieldId}
+              value={value}
+              disabled={disabled}
+              rows={4}
+              aria-describedby={`${fieldId}-help ${fieldId}-count`}
+              onChange={(event) => onChange({ ...draft, answers: { ...draft.answers, [topic.id]: event.target.value } })}
+              className="mt-3 w-full resize-y rounded-xl border border-line bg-night/55 px-4 py-3 text-sm leading-6 text-ink outline-none placeholder:text-muted/55 focus:border-cyan/60 focus:ring-2 focus:ring-cyan/15 disabled:opacity-75"
+              placeholder="Resume lo que investigaste…"
+            />
+            <p id={`${fieldId}-count`} className={`mt-2 text-right text-xs ${remaining === 0 ? "text-ok" : "text-muted"}`}>{remaining === 0 ? "Extensión mínima cumplida" : `Faltan ${remaining} caracteres`}</p>
+            {item && <ItemFeedback correct={item.isCorrect === true} text={item.feedback} />}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function DimensioningStep({ draft, evaluation, disabled, onChange }: { draft: E3ADimensioningSubmission; evaluation?: E3AEvaluation; disabled: boolean; onChange: (draft: E3ADimensioningSubmission) => void }) {
-  const asset = E3A_CHALLENGE.steps.dimensioning.asset;
   return (
     <div className="mt-6 space-y-6">
-      <figure className="overflow-hidden rounded-2xl border border-line bg-surface/30">
-        <Image src={`${PUBLIC_BASE_PATH}${asset.src}`} alt={asset.alt} width={1600} height={900} className="h-auto w-full" />
-        <figcaption className="border-t border-line px-4 py-3 text-xs leading-5 text-muted">La columna “pico” representa el peor caso de diseño, no necesariamente el consumo continuo.</figcaption>
-      </figure>
       <div className="overflow-x-auto rounded-2xl border border-line">
         <table className="min-w-[640px] w-full border-collapse text-left text-sm">
           <caption className="sr-only">Consumos pico del robot</caption>
@@ -478,11 +514,11 @@ function normalizeStep(id: E3AStepId, saved?: ChallengeStepProgress): ChallengeS
 
 function normalizeDraft(id: E3AStepId, raw: unknown): E3ASubmission {
   if (!isRecord(raw) || raw.stepId !== id) return createE3ADraft(id);
-  if (id === "dimensioning") {
-    const answers = isRecord(raw.answers) ? Object.fromEntries(Object.entries(raw.answers).filter((entry): entry is [string, string] => typeof entry[1] === "string")) : {};
-    return { stepId: id, answers } as E3ADimensioningSubmission;
+  if (id === "rail-separation") {
+    return { stepId: id, explanation: typeof raw.explanation === "string" ? raw.explanation : "" };
   }
-  return { stepId: id, explanation: typeof raw.explanation === "string" ? raw.explanation : "" };
+  const answers = isRecord(raw.answers) ? Object.fromEntries(Object.entries(raw.answers).filter((entry): entry is [string, string] => typeof entry[1] === "string")) : {};
+  return { stepId: id, answers } as E3ASubmission;
 }
 
 function deriveEvaluations(progress: NodeChallengeProgress): EvaluationMap {
@@ -496,7 +532,18 @@ function deriveEvaluations(progress: NodeChallengeProgress): EvaluationMap {
 }
 
 function isDraftReady(draft: E3ASubmission): boolean {
-  return draft.stepId === "dimensioning" ? E3A_QUESTIONS.every((question) => Boolean(draft.answers[question.id])) : draft.explanation.trim().length >= E3A_CHALLENGE.steps["rail-separation"].minimumCharacters;
+  if (draft.stepId === "research") {
+    return E3A_RESEARCH_TOPICS.every((topic) => (draft.answers[topic.id] ?? "").trim().length >= E3A_RESEARCH_MIN_CHARS);
+  }
+  if (draft.stepId === "dimensioning") {
+    return E3A_QUESTIONS.every((question) => Boolean(draft.answers[question.id]));
+  }
+  return draft.explanation.trim().length >= E3A_CHALLENGE.steps["rail-separation"].minimumCharacters;
+}
+
+function submitLabel(stepId: E3AStepId): string {
+  if (stepId === "dimensioning") return "Comprobar decisiones";
+  return stepId === "research" ? "Registrar investigación" : "Registrar explicación";
 }
 
 function canVisit(progress: NodeChallengeProgress, target: E3AStepId, readOnly: boolean): boolean {
@@ -513,7 +560,7 @@ function isSolved(step?: ChallengeStepProgress): boolean { return positive(step?
 function positive(value: unknown): number | null { return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : null; }
 function finite(value: unknown): number | undefined { return typeof value === "number" && Number.isFinite(value) ? value : undefined; }
 function isStepId(value: unknown): value is E3AStepId { return typeof value === "string" && E3A_STEP_IDS.includes(value as E3AStepId); }
-function toStepId(value: unknown): E3AStepId { return isStepId(value) ? value : "dimensioning"; }
+function toStepId(value: unknown): E3AStepId { return isStepId(value) ? value : E3A_STEP_IDS[0]; }
 function stepTitle(id: E3AStepId): string { return E3A_CHALLENGE.steps[id].title; }
 function isRecord(value: unknown): value is Record<string, unknown> { return typeof value === "object" && value !== null && !Array.isArray(value); }
 function toJsonValue(value: unknown): JsonValue { return JSON.parse(JSON.stringify(value)) as JsonValue; }

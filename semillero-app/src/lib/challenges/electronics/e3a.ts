@@ -1,6 +1,6 @@
 /** Pure, serializable content and evaluation rules for Electronics E3A. */
 
-export type E3AStepId = "dimensioning" | "rail-separation";
+export type E3AStepId = "research" | "dimensioning" | "rail-separation";
 
 export type E3AQuestionId =
   | "motor-peak"
@@ -8,9 +8,17 @@ export type E3AQuestionId =
   | "six-volt-rail"
   | "battery";
 
+export type E3AResearchTopicId = "lipo" | "switching-supply" | "nimh";
+
 export interface E3AOption {
   readonly id: string;
   readonly label: string;
+}
+
+export interface E3AResearchTopic {
+  readonly id: E3AResearchTopicId;
+  readonly title: string;
+  readonly prompt: string;
 }
 
 export interface E3AQuestion {
@@ -30,6 +38,11 @@ export interface E3AAsset {
   readonly alt: string;
 }
 
+export interface E3AResearchSubmission {
+  readonly stepId: "research";
+  readonly answers: Readonly<Partial<Record<E3AResearchTopicId, string>>>;
+}
+
 export interface E3ADimensioningSubmission {
   readonly stepId: "dimensioning";
   readonly answers: Readonly<Partial<Record<E3AQuestionId, string>>>;
@@ -41,6 +54,7 @@ export interface E3ASeparationSubmission {
 }
 
 export type E3ASubmission =
+  | E3AResearchSubmission
   | E3ADimensioningSubmission
   | E3ASeparationSubmission;
 
@@ -62,9 +76,33 @@ export interface E3AEvaluation {
 }
 
 export const E3A_STEP_IDS = [
+  "research",
   "dimensioning",
   "rail-separation",
 ] as const satisfies readonly E3AStepId[];
+
+export const E3A_RESEARCH_MIN_CHARS = 60;
+
+export const E3A_RESEARCH_TOPICS = [
+  {
+    id: "lipo",
+    title: "Baterías LiPo",
+    prompt:
+      "¿Qué es una batería LiPo? Investiga qué significan su notación en S y en C, y qué cuidados de carga, descarga y almacenamiento requiere.",
+  },
+  {
+    id: "switching-supply",
+    title: "Fuentes switcheadas",
+    prompt:
+      "¿Cómo funciona una fuente switcheada (regulador conmutado)? Investiga en qué se diferencia de un regulador lineal, sobre todo en eficiencia y generación de calor.",
+  },
+  {
+    id: "nimh",
+    title: "Baterías NiMH",
+    prompt:
+      "¿Qué es una batería NiMH? Investiga su tensión nominal por celda y en qué casos se sigue eligiendo frente a una LiPo.",
+  },
+] as const satisfies readonly E3AResearchTopic[];
 
 export const E3A_CONSUMPTION_ROWS = [
   {
@@ -176,6 +214,15 @@ export const E3A_CHALLENGE = {
   attempts: "unlimited",
   completionRule: "all_steps",
   steps: {
+    research: {
+      id: "research",
+      title: "Investiga las fuentes de energía",
+      statement:
+        "Antes de dimensionar nada, investiga por tu cuenta estas tres formas de alimentar un robot y resume qué aprendiste de cada una.",
+      hints: [
+        "Busca datasheets, guías de fabricantes o foros de robótica; compara tensión, capacidad, seguridad y facilidad de uso.",
+      ],
+    },
     dimensioning: {
       id: "dimensioning",
       title: "Consumo y dimensionamiento",
@@ -184,17 +231,12 @@ export const E3A_CHALLENGE = {
       hints: [
         "Multiplica la corriente pico por la cantidad de dispositivos, agrupa las cargas por voltaje y revisa la descarga de la batería con Ah × C.",
       ],
-      asset: {
-        src: "/challenges/electronics/e3a/electronics_E3A_S1_robot_power_table.png",
-        sourceFilename: "electronics_E3A_S1_robot_power_table.png",
-        alt: "Tabla de consumos pico del robot para motores, microcomputador, servos y sensores.",
-      } satisfies E3AAsset,
     },
     "rail-separation": {
       id: "rail-separation",
       title: "Separa potencia y procesamiento",
       statement:
-        "Explica por qué conviene separar los rieles de motores, lógica y servos, aunque compartan una referencia de tierra adecuada.",
+        "Explica por qué conviene separar los rieles de motores, lógica y servos, aunque compartan una referencia de tierra adecuada y aunque los actuadores usen el mismo nivel de voltaje que la parte de procesamiento.",
       minimumCharacters: 120,
       rubricConcepts: ["ruido", "transitorios", "brownouts o caídas", "estabilidad"],
       hints: [
@@ -212,6 +254,34 @@ export const E3A_CHALLENGE = {
 export function evaluateE3A(
   submission: E3ASubmission
 ): E3AEvaluation {
+  if (submission.stepId === "research") {
+    const evaluated = E3A_RESEARCH_TOPICS.map((topic) => {
+      const answer = (submission.answers[topic.id] ?? "").trim();
+      const meetsMinimum = answer.length >= E3A_RESEARCH_MIN_CHARS;
+      return { topic, answer, meetsMinimum };
+    });
+    const score = evaluated.filter((entry) => entry.meetsMinimum).length;
+    const isComplete = score === E3A_RESEARCH_TOPICS.length;
+    return {
+      stepId: submission.stepId,
+      isComplete,
+      isCorrect: null,
+      score,
+      maxScore: E3A_RESEARCH_TOPICS.length,
+      feedback: isComplete
+        ? "Investigación registrada para revisión."
+        : `Desarrolla ${E3A_RESEARCH_TOPICS.length - score} tema${E3A_RESEARCH_TOPICS.length - score === 1 ? "" : "s"} más antes de continuar.`,
+      items: evaluated.map(({ topic, answer, meetsMinimum }) => ({
+        id: topic.id,
+        isAnswered: answer.length > 0,
+        isCorrect: null,
+        feedback: meetsMinimum
+          ? "Respuesta registrada para revisión."
+          : `Faltan ${E3A_RESEARCH_MIN_CHARS - answer.length} caracteres.`,
+      })),
+    };
+  }
+
   if (submission.stepId === "dimensioning") {
     const items = E3A_QUESTIONS.map((question) => {
       const answer = submission.answers[question.id];
@@ -267,7 +337,6 @@ export function evaluateE3A(
 }
 
 export function createE3ADraft(stepId: E3AStepId): E3ASubmission {
-  return stepId === "dimensioning"
-    ? { stepId, answers: {} }
-    : { stepId, explanation: "" };
+  if (stepId === "rail-separation") return { stepId, explanation: "" };
+  return { stepId, answers: {} };
 }
