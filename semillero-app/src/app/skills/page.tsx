@@ -83,6 +83,8 @@ function TreeCanvas() {
     hydrated,
     sessionActive,
     completeNode,
+    completeChallenge,
+    saveChallengeProgress,
     endSession,
   } = useAppState();
   const [overview, setOverview] = useState(false);
@@ -180,6 +182,10 @@ function TreeCanvas() {
           id: node.id,
           type: "skill",
           position: positions[node.id],
+          // React Flow disables pointer events when a node is neither draggable
+          // nor selectable. Skill nodes remain fixed, but their inner button
+          // must still receive hover, mouse and touch interactions.
+          style: { pointerEvents: "all" },
           draggable: false,
           selectable: false,
           zIndex: node.id === IR_NODE.id ? 6 : 3,
@@ -220,7 +226,6 @@ function TreeCanvas() {
       if (!root) continue;
 
       const branch = BRANCHES[branchId];
-      const explored = branchCompletedCount(state.progress, branchId) > 0;
       edges.push({
         id: `candidate-${branchId}`,
         source: CANDIDATE_NODE_ID,
@@ -231,7 +236,7 @@ function TreeCanvas() {
         zIndex: 1,
         data: {
           color: branch.color,
-          active: explored,
+          active: statuses[root.id] !== "locked",
           dimmed: false,
           variant: "branch",
         },
@@ -324,7 +329,7 @@ function TreeCanvas() {
     }
 
     return edges;
-  }, [overview, state.progress, statuses, visible]);
+  }, [overview, statuses, visible]);
 
   useEffect(() => {
     if (isCompact || !hydrated || !accessAllowed) return;
@@ -370,6 +375,9 @@ function TreeCanvas() {
       prereqTitles={prereqTitles}
       onClose={() => setSelectedId(null)}
       onComplete={handleComplete}
+      challengeProgress={selectedId ? state.challengeProgress[selectedId] : undefined}
+      onSaveChallengeProgress={saveChallengeProgress}
+      onCompleteChallenge={completeChallenge}
     />
   );
 

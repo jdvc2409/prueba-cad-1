@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+<rect width="1600" height="900" fill="#071824"/>
+<defs>
+  <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+    <feGaussianBlur stdDeviation="6" result="blur"/>
+    <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+  <style>
+    .title{font:700 46px 'Inter',Arial,sans-serif;fill:#F5FAFD}
+    .sub{font:400 23px 'Inter',Arial,sans-serif;fill:#9CB6C8}
+    .cardTitle{font:700 27px 'Inter',Arial,sans-serif;fill:#F5FAFD}
+    .body{font:400 21px 'Inter',Arial,sans-serif;fill:#F5FAFD}
+    .small{font:400 18px 'Inter',Arial,sans-serif;fill:#9CB6C8}
+    .label{font:700 18px 'Inter',Arial,sans-serif;fill:#39C8F0;letter-spacing:1.2px}
+    .value{font:700 31px 'Inter',Arial,sans-serif;fill:#F5FAFD}
+    .wire{stroke:#39C8F0;stroke-width:5;fill:none;stroke-linecap:round;stroke-linejoin:round}
+    .wireDim{stroke:#24516A;stroke-width:4;fill:none;stroke-linecap:round}
+  </style>
+</defs>
+
+<text x="90" y="90" class="label">E0 · FUNDAMENTOS</text>
+<text x="90" y="148" class="title">Capacidad de corriente ≠ corriente obligatoria</text>
+<text x="90" y="192" class="sub">La carga demanda corriente; la fuente debe tener suficiente capacidad para entregarla.</text>
+
+<rect x="95" y="270" rx="30" width="650" height="445" fill="#0D2534" stroke="#24516A" stroke-width="2"/>
+<text x="140" y="330" class="cardTitle">Caso A · Fuente con margen</text>
+<rect x="155" y="390" width="210" height="135" rx="20" fill="#102E41" stroke="#0A84C7" stroke-width="4"/>
+<text x="260" y="440" text-anchor="middle" class="small">FUENTE</text>
+<text x="260" y="484" text-anchor="middle" class="value">5 V · máx. 2 A</text>
+<line x1="365" y1="458" x2="475" y2="458" class="wire"/>
+<path d="M465 446 L487 458 L465 470 Z" fill="#39C8F0"/>
+<rect x="488" y="390" width="205" height="135" rx="20" fill="#102E41" stroke="#39C8F0" stroke-width="4"/>
+<text x="590" y="440" text-anchor="middle" class="small">CARGA</text>
+<text x="590" y="484" text-anchor="middle" class="value">300 mA</text>
+<text x="140" y="595" class="body">Pregunta: ¿la fuente “empuja” 2 A?</text>
+<text x="140" y="638" class="small">La capacidad máxima sólo indica cuánto puede suministrar con seguridad.</text>
+
+<rect x="855" y="270" rx="30" width="650" height="445" fill="#0D2534" stroke="#24516A" stroke-width="2"/>
+<text x="900" y="330" class="cardTitle">Caso B · Fuente insuficiente</text>
+<rect x="915" y="390" width="210" height="135" rx="20" fill="#102E41" stroke="#EF6A6A" stroke-width="4"/>
+<text x="1020" y="440" text-anchor="middle" class="small">REGULADOR</text>
+<text x="1020" y="484" text-anchor="middle" class="value">máx. 1 A</text>
+<line x1="1125" y1="458" x2="1235" y2="458" class="wire"/>
+<path d="M1225 446 L1247 458 L1225 470 Z" fill="#39C8F0"/>
+<rect x="1248" y="390" width="205" height="135" rx="20" fill="#102E41" stroke="#F0A45D" stroke-width="4"/>
+<text x="1350" y="440" text-anchor="middle" class="small">SERVOS</text>
+<text x="1350" y="484" text-anchor="middle" class="value">requieren 4 A</text>
+<text x="900" y="595" class="body">Pregunta: ¿qué síntoma esperarías?</text>
+<text x="900" y="638" class="small">Piensa en caída de tensión, calentamiento y reinicios.</text>
+
+<rect x="430" y="770" width="740" height="64" rx="18" fill="#102E41" stroke="#24516A" stroke-width="2"/>
+<text x="800" y="810" text-anchor="middle" class="body">Idea clave: capacidad disponible ≥ demanda del sistema</text>
+
+</svg>

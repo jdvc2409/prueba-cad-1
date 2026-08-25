@@ -15,11 +15,16 @@ registro con validaciones académicas, acceso local para reanudar, presentación
 libre multimodal y un árbol de habilidades interactivo con 53 nodos técnicos
 más el reto transversal de Integración Robótica.
 
-Los retos en esta etapa son **placeholders de debug**: al hacer clic en un
-nodo se muestra su nombre, tipo y una mini descripción de en qué consiste, con
-un botón "Completar reto" que lo marca como resuelto y desbloquea los
-siguientes nodos con animación. El contenido real de cada reto (tipos A–J del
-motor de retos) se implementará en una siguiente etapa.
+El primer reto de Electrónica, **E0 — Encuentra qué no cuadra**, ya cuenta con
+una experiencia interactiva de cinco pasos sobre voltaje, corriente, polaridad,
+Ley de Ohm/potencia y símbolos. Guarda respuestas, reintentos, pistas y tiempo
+activo en el dispositivo, y sólo completa el nodo al resolver los cinco pasos.
+Los demás retos conservan por ahora su vista de prototipo con título,
+descripción, modalidad y formato de entrega.
+
+La progresión exige completar todos los retos de un nivel antes de abrir el
+siguiente dentro de cada rama. Las conexiones conservan el color de su rama y
+muestran el flujo desde el centro hacia los nuevos nodos.
 
 No incluye todavía: autenticación real, backend/base de datos, dashboard del
 evaluador ni panel administrativo. El acceso actual compara el correo contra el
