@@ -44,13 +44,20 @@ export function LocalEvidenceUploader({
   const [urls, setUrls] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const valueRef = useRef(value);
+  useEffect(() => {
+    valueRef.current = value;
+  });
+
+  const fileIdsKey = value.map((file) => file.id).join(",");
 
   useEffect(() => {
     let cancelled = false;
     const objectUrls: string[] = [];
+    const files = valueRef.current;
 
     void Promise.all(
-      value.map(async (file) => {
+      files.map(async (file) => {
         try {
           const blob = await getEvidenceBlob(file.id);
           if (!blob) return [file.id, ""] as const;
@@ -69,7 +76,7 @@ export function LocalEvidenceUploader({
       cancelled = true;
       for (const url of objectUrls) URL.revokeObjectURL(url);
     };
-  }, [value]);
+  }, [fileIdsKey]);
 
   const selectFiles = async (fileList: FileList | null) => {
     if (!fileList || disabled) return;
@@ -126,7 +133,7 @@ export function LocalEvidenceUploader({
     }
   };
 
-  const atLimit = value.length >= maxFiles;
+  const atLimit = multiple ? value.length >= maxFiles : false;
 
   return (
     <section className="rounded-2xl border border-line bg-night/30 p-4 sm:p-5">
@@ -226,7 +233,7 @@ function FilePreview({ file, url }: { file: LocalEvidenceFile; url?: string }) {
   if (url && file.mimeType.startsWith("image/")) {
     // Blob URLs are created at runtime and cannot use Next's static image pipeline.
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={url} alt="" className="h-12 w-16 shrink-0 rounded-lg object-cover" />;
+    return <img src={url} alt="" className="h-12 w-12 shrink-0 rounded-lg object-cover" />;
   }
 
   return (

@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import {
   useCallback,
   useEffect,
@@ -54,8 +53,6 @@ interface SubmissionResult {
   attemptNumber: number;
   validation: E2StepValidation;
 }
-
-const PUBLIC_BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
 export function E2Challenge({
   savedProgress,
@@ -509,8 +506,6 @@ export function E2Challenge({
         </header>
 
         <div className="space-y-6">
-          {currentStep.asset && <StepVisual step={currentStep} />}
-
           <StepEditor
             draft={currentDraft}
             disabled={readOnly}
@@ -538,27 +533,6 @@ export function E2Challenge({
         {announcement}
       </p>
     </section>
-  );
-}
-
-function StepVisual({ step }: { step: E2StepDefinition }) {
-  if (!step.asset) return null;
-
-  return (
-    <figure className="overflow-hidden rounded-2xl border border-white/10 bg-[#04131d]/70">
-      <div className="relative aspect-video w-full">
-        <Image
-          src={`${PUBLIC_BASE_PATH}${step.asset.src}`}
-          alt={step.asset.alt}
-          fill
-          sizes="(max-width: 1024px) 100vw, 1100px"
-          className="object-contain"
-        />
-      </div>
-      <figcaption className="border-t border-white/[0.07] px-4 py-3 text-xs leading-5 text-slate-400">
-        Apoyo visual del paso. Usa el enunciado y los campos de respuesta como guía principal.
-      </figcaption>
-    </figure>
   );
 }
 

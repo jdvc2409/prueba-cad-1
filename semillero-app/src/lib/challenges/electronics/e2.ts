@@ -12,12 +12,6 @@ export type E2ComponentCategory =
   | "power-source"
   | "other";
 
-export interface E2Asset {
-  readonly sourceFilename: string;
-  readonly src: string;
-  readonly alt: string;
-}
-
 export interface E2Requirement {
   readonly id: string;
   readonly label: string;
@@ -77,7 +71,6 @@ export interface E2StepDefinition {
   readonly title: string;
   readonly eyebrow: string;
   readonly statement: string;
-  readonly asset?: E2Asset;
   readonly hints: readonly string[];
 }
 
@@ -125,11 +118,6 @@ export const E2_STEPS = [
     eyebrow: "Paso 1 de 4 · Brief del robot",
     statement:
       "Lee el problema y confirma los requisitos que deberá cubrir tu propuesta electrónica.",
-    asset: {
-      sourceFilename: "electronics_E2_S1_problem_card_mobile_obstacle.png",
-      src: "/challenges/electronics/e2/electronics_E2_S1_problem_card_mobile_obstacle.png",
-      alt: "Tarjeta del reto de un robot móvil que detecta obstáculos y bordes, mueve dos ruedas, muestra una señal visual y usa un microcontrolador.",
-    },
     hints: [],
   },
   {
@@ -138,12 +126,7 @@ export const E2_STEPS = [
     title: "Define los componentes",
     eyebrow: "Paso 2 de 4 · Lista justificada",
     statement:
-      "Propón los componentes del sistema y explica para qué sirve cada uno y por qué lo elegiste. No necesitas usar una marca o modelo concreto.",
-    asset: {
-      sourceFilename: "electronics_E2_S2_component_library.svg",
-      src: "/challenges/electronics/e2/electronics_E2_S2_component_library.svg",
-      alt: "Biblioteca visual de ejemplos de microcontroladores, sensores, drivers, actuadores, indicadores, baterías y reguladores.",
-    },
+      "Propón los componentes del sistema y explica para qué sirve cada uno y por qué lo elegiste. Investiga por tu cuenta: no necesitas usar una marca o modelo concreto.",
     hints: [],
   },
   {
@@ -152,12 +135,7 @@ export const E2_STEPS = [
     title: "Entrega el esquema",
     eyebrow: "Paso 3 de 4 · Esquema propio",
     statement:
-      "Sube una imagen o un PDF legible de tu esquema. La plantilla visual es una referencia; tu archivo debe representar tu propia propuesta.",
-    asset: {
-      sourceFilename: "electronics_E2_S3_blank_schematic_canvas.svg",
-      src: "/challenges/electronics/e2/electronics_E2_S3_blank_schematic_canvas.svg",
-      alt: "Plantilla de arquitectura con sensores, microcontrolador, driver, actuadores y una referencia de tierra común.",
-    },
+      "Debes entregar el plano eléctrico de tu robot. Sube una imagen o un PDF legible que represente tu propia propuesta.",
     hints: [],
   },
   {
