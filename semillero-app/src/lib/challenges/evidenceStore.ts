@@ -1,3 +1,5 @@
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+
 export interface LocalEvidenceFile {
   id: string;
   nodeId: string;
@@ -7,6 +9,7 @@ export interface LocalEvidenceFile {
   size: number;
   lastModified: number;
   storedAt: number;
+  storagePath?: string;
 }
 
 interface StoredEvidenceRecord extends LocalEvidenceFile {
@@ -69,6 +72,43 @@ export async function storeEvidenceFile(
   fieldId: string,
   file: File
 ): Promise<LocalEvidenceFile> {
+  const supabase = getSupabaseBrowserClient();
+  if (supabase) {
+    const { data: userData } = await supabase.auth.getUser();
+    const user = userData.user;
+    if (user) {
+      const { data: run, error: runError } = await supabase
+        .from("assessment_runs")
+        .select("id")
+        .eq("candidate_id", user.id)
+        .single();
+      if (runError) throw runError;
+      const id = crypto.randomUUID();
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const storagePath = `${user.id}/${run.id}/${nodeId}/${id}-${safeName}`;
+      const { error: uploadError } = await supabase.storage
+        .from("evidence")
+        .upload(storagePath, file, { upsert: false, contentType: file.type || undefined });
+      if (uploadError) throw uploadError;
+      const metadata: LocalEvidenceFile = {
+        id, nodeId, fieldId, name: file.name,
+        mimeType: file.type || "application/octet-stream",
+        size: file.size, lastModified: file.lastModified,
+        storedAt: Date.now(), storagePath,
+      };
+      const { error: metadataError } = await supabase.from("evidence_files").insert({
+        id, run_id: run.id, node_id: nodeId, field_id: fieldId,
+        storage_path: storagePath, original_name: file.name,
+        mime_type: metadata.mimeType, size_bytes: file.size,
+      });
+      if (metadataError) {
+        await supabase.storage.from("evidence").remove([storagePath]);
+        throw metadataError;
+      }
+      return metadata;
+    }
+  }
+
   const metadata: LocalEvidenceFile = {
     id: crypto.randomUUID(),
     nodeId,
@@ -86,14 +126,38 @@ export async function storeEvidenceFile(
 }
 
 export async function getEvidenceBlob(id: string): Promise<Blob | null> {
-  const result = await runTransaction<StoredEvidenceRecord | undefined>(
-    "readonly",
-    (store) => store.get(id)
-  );
-  return result?.blob instanceof Blob ? result.blob : null;
+  try {
+    const result = await runTransaction<StoredEvidenceRecord | undefined>(
+      "readonly",
+      (store) => store.get(id)
+    );
+    if (result?.blob instanceof Blob) return result.blob;
+  } catch {
+    // IndexedDB may be unavailable; remote storage remains usable.
+  }
+  const supabase = getSupabaseBrowserClient();
+  if (!supabase) return null;
+  const { data: metadata } = await supabase
+    .from("evidence_files")
+    .select("storage_path")
+    .eq("id", id)
+    .maybeSingle();
+  if (!metadata?.storage_path) return null;
+  const { data } = await supabase.storage.from("evidence").download(metadata.storage_path);
+  return data ?? null;
 }
 
 export async function removeEvidenceFile(id: string): Promise<void> {
+  const supabase = getSupabaseBrowserClient();
+  if (supabase) {
+    const { data } = await supabase.from("evidence_files").select("storage_path").eq("id", id).maybeSingle();
+    if (data?.storage_path) {
+      const { error } = await supabase.from("evidence_files").delete().eq("id", id);
+      if (error) throw error;
+      await supabase.storage.from("evidence").remove([data.storage_path]);
+      return;
+    }
+  }
   await runTransaction<undefined>("readwrite", (store) => store.delete(id));
 }
 

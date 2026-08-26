@@ -17,6 +17,7 @@ import { E2Challenge } from "@/components/challenges/electronics/E2Challenge";
 import { E3AChallenge } from "@/components/challenges/electronics/E3AChallenge";
 import { E3BChallenge } from "@/components/challenges/electronics/E3BChallenge";
 import { E4Challenge } from "@/components/challenges/electronics/E4Challenge";
+import { SystemsChallenge } from "@/components/challenges/systems/SystemsChallenge";
 import { BranchIcon } from "@/components/icons/BranchIcon";
 import {
   DELIVERY_FORMAT_LABELS,
@@ -24,7 +25,7 @@ import {
   type DeliveryFormat,
 } from "@/lib/challengePresentation";
 import { BRANCHES } from "@/lib/data/branches";
-import { isElectronicsChallengeNodeId } from "@/lib/challenges/electronics/registry";
+import { isImplementedChallengeNodeId } from "@/lib/challenges/registry";
 import type {
   NodeChallengeProgress,
   NodeStatus,
@@ -63,7 +64,7 @@ interface DetailedChallengeProps {
   onExit?: () => void;
 }
 
-const ELECTRONICS_CHALLENGE_COMPONENTS: Readonly<
+const DETAILED_CHALLENGE_COMPONENTS: Readonly<
   Record<string, ComponentType<DetailedChallengeProps>>
 > = {
   E0: E0Challenge,
@@ -73,6 +74,15 @@ const ELECTRONICS_CHALLENGE_COMPONENTS: Readonly<
   E3A: E3AChallenge,
   E3B: E3BChallenge,
   E4: E4Challenge,
+  SI0: (props) => <SystemsChallenge {...props} nodeId="SI0" />,
+  SI1A: (props) => <SystemsChallenge {...props} nodeId="SI1A" />,
+  SI1B: (props) => <SystemsChallenge {...props} nodeId="SI1B" />,
+  SI2: (props) => <SystemsChallenge {...props} nodeId="SI2" />,
+  SI3A: (props) => <SystemsChallenge {...props} nodeId="SI3A" />,
+  SI3B: (props) => <SystemsChallenge {...props} nodeId="SI3B" />,
+  SI4: (props) => <SystemsChallenge {...props} nodeId="SI4" />,
+  SI5: (props) => <SystemsChallenge {...props} nodeId="SI5" />,
+  SI6: (props) => <SystemsChallenge {...props} nodeId="SI6" />,
 };
 
 export function NodeDetailPanel({
@@ -196,7 +206,9 @@ export function NodeDetailPanel({
   return createPortal(
     <AnimatePresence>
       {node && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-6">
+        <div className={`fixed inset-0 z-50 flex items-end justify-center sm:items-center ${
+          isImplementedChallengeNodeId(node.id) ? "" : "sm:p-6"
+        }`}>
           <motion.div
             aria-hidden="true"
             initial={reduceMotion ? false : { opacity: 0 }}
@@ -214,12 +226,14 @@ export function NodeDetailPanel({
             aria-labelledby="skill-detail-title"
             aria-describedby="skill-detail-description"
             tabIndex={-1}
-            initial={reduceMotion ? false : { opacity: 0, y: 32, scale: 0.975 }}
+            initial={reduceMotion ? false : isImplementedChallengeNodeId(node.id) ? { opacity: 0, y: 12 } : { opacity: 0, y: 32, scale: 0.975 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 24, scale: 0.985 }}
+            exit={reduceMotion ? { opacity: 0 } : isImplementedChallengeNodeId(node.id) ? { opacity: 0, y: 8 } : { opacity: 0, y: 24, scale: 0.985 }}
             transition={{ duration: reduceMotion ? 0 : 0.34, ease: [0.16, 1, 0.3, 1] }}
-            className={`relative z-10 flex max-h-[calc(100dvh-1rem)] w-full flex-col overflow-hidden rounded-t-3xl border border-line bg-[#081f32] shadow-[0_32px_100px_rgba(0,0,0,0.55)] outline-none sm:max-h-[calc(100dvh-3rem)] sm:rounded-3xl ${
-              isElectronicsChallengeNodeId(node.id) ? "max-w-7xl" : "max-w-5xl"
+            className={`relative z-10 flex w-full flex-col overflow-hidden bg-[#081f32] outline-none ${
+              isImplementedChallengeNodeId(node.id)
+                ? "h-dvh max-h-none max-w-none rounded-none border-0 shadow-none"
+                : "max-h-[calc(100dvh-1rem)] max-w-5xl rounded-t-3xl border border-line shadow-[0_32px_100px_rgba(0,0,0,0.55)] sm:max-h-[calc(100dvh-3rem)] sm:rounded-3xl"
             }`}
           >
             <ChallengeHeader
@@ -336,11 +350,13 @@ function ChallengeBody({
   const branch = BRANCHES[node.branchId];
   const presentation = getChallengePresentation(node);
   const statusCopy = STATUS_COPY[status];
-  const DetailedChallenge = ELECTRONICS_CHALLENGE_COMPONENTS[node.id];
+  const DetailedChallenge = DETAILED_CHALLENGE_COMPONENTS[node.id];
 
   if (DetailedChallenge && status !== "locked") {
     return (
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 sm:p-5 lg:p-6">
+      <div className={`min-h-0 flex-1 overscroll-contain ${
+        node.id.startsWith("SI") ? "overflow-hidden" : "overflow-y-auto p-3 sm:p-5 lg:p-6"
+      }`}>
         <DetailedChallenge
           savedProgress={challengeProgress}
           readOnly={status === "completed"}

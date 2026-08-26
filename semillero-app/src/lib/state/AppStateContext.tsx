@@ -19,11 +19,11 @@ import type {
 import { canFinishJourney, computeStatus } from "@/lib/unlock";
 import { isValidCandidateProfile } from "@/lib/admissions";
 import {
-  ELECTRONICS_CHALLENGE_NODE_IDS,
-  ELECTRONICS_CHALLENGE_PROGRESS,
-  getElectronicsChallengeProgressDefinition,
-  isElectronicsChallengeNodeId,
-} from "@/lib/challenges/electronics/registry";
+  IMPLEMENTED_CHALLENGE_NODE_IDS,
+  IMPLEMENTED_CHALLENGE_PROGRESS,
+  getChallengeProgressDefinition,
+  isImplementedChallengeNodeId,
+} from "@/lib/challenges/registry";
 import {
   hasCompletedChallenge,
   isPositiveTimestamp,
@@ -32,6 +32,11 @@ import {
 } from "@/lib/challenges/progress";
 import { clearAllEvidenceFiles } from "@/lib/challenges/evidenceStore";
 import { nodeById } from "@/lib/data/nodes";
+import { useAuth } from "@/lib/auth/AuthContext";
+import {
+  loadRemoteJourney,
+  saveRemoteJourney,
+} from "@/lib/supabase/journeyStore";
 
 const STORAGE_KEY = "semillero-app-state-v1";
 const SESSION_KEY = "semillero-session-active";
@@ -191,10 +196,10 @@ function loadState(): AppState {
     const rawChallenges = isRecord(parsed.challengeProgress)
       ? parsed.challengeProgress
       : {};
-    for (const nodeId of ELECTRONICS_CHALLENGE_NODE_IDS) {
+    for (const nodeId of IMPLEMENTED_CHALLENGE_NODE_IDS) {
       const normalized = normalizeNodeChallengeProgress(
         rawChallenges[nodeId],
-        ELECTRONICS_CHALLENGE_PROGRESS[nodeId]
+        IMPLEMENTED_CHALLENGE_PROGRESS[nodeId]
       );
       if (normalized) challengeProgress[nodeId] = normalized;
     }
@@ -212,8 +217,8 @@ function loadState(): AppState {
     // editable journeys, detailed steps are now the source of truth. Reconcile
     // them in tree order so every level still requires all preceding siblings.
     if (!submitted && sourceVersion <= 3) {
-      for (const nodeId of ELECTRONICS_CHALLENGE_NODE_IDS) {
-        const definition = ELECTRONICS_CHALLENGE_PROGRESS[nodeId];
+      for (const nodeId of IMPLEMENTED_CHALLENGE_NODE_IDS) {
+        const definition = IMPLEMENTED_CHALLENGE_PROGRESS[nodeId];
         const detailed = challengeProgress[nodeId];
         const requirements = nodeById(nodeId)?.requires ?? [];
         const requirementsComplete = requirements.every(
@@ -275,6 +280,7 @@ function loadState(): AppState {
 }
 
 export function AppStateProvider({ children }: { children: React.ReactNode }) {
+  const auth = useAuth();
   const [state, setState] = useState<AppState>(defaultState);
   const [hydrated, setHydrated] = useState(false);
   const [sessionActive, setSessionActive] = useState(false);
@@ -288,14 +294,57 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     stateRef.current = restoredState;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setState(restoredState);
-    try {
-      setSessionActive(window.sessionStorage.getItem(SESSION_KEY) === "true");
-    } catch {
-      setSessionActive(false);
-      setSaveStatus("error");
+    if (!auth.configured) {
+      try {
+        setSessionActive(window.sessionStorage.getItem(SESSION_KEY) === "true");
+      } catch {
+        setSessionActive(false);
+        setSaveStatus("error");
+      }
+      setHydrated(true);
     }
-    setHydrated(true);
-  }, []);
+  }, [auth.configured]);
+
+  useEffect(() => {
+    if (!auth.configured || auth.loading) return;
+    if (!auth.user) {
+      void Promise.resolve().then(() => {
+        setSessionActive(false);
+        setHydrated(true);
+      });
+      return;
+    }
+
+    let active = true;
+    void loadRemoteJourney(auth.user.id)
+      .then((remote) => {
+        if (!active) return;
+        const local = stateRef.current;
+        const canImportLocal = Boolean(
+          remote &&
+            !remote.profile.program &&
+            local.profile.email &&
+            local.profile.email.toLowerCase() === (auth.user?.email ?? "").toLowerCase()
+        );
+        const next = canImportLocal ? local : remote ?? local;
+        stateRef.current = next;
+        setState(next);
+        setSessionActive(true);
+        setHydrated(true);
+        if (canImportLocal && auth.user) {
+          void saveRemoteJourney(auth.user.id, local).catch(() => setSaveStatus("error"));
+        }
+      })
+      .catch(() => {
+        if (!active) return;
+        setSaveStatus("error");
+        setSessionActive(true);
+        setHydrated(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, [auth.configured, auth.loading, auth.user]);
 
   const commitState = useCallback(
     (update: (previous: AppState) => AppState) => {
@@ -310,11 +359,17 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const persistState = useCallback((snapshot: AppState) => {
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
-      setSaveStatus("saved");
+      if (auth.configured && auth.user && auth.role === "candidate") {
+        void saveRemoteJourney(auth.user.id, snapshot)
+          .then(() => setSaveStatus("saved"))
+          .catch(() => setSaveStatus("error"));
+      } else {
+        setSaveStatus("saved");
+      }
     } catch {
       setSaveStatus("error");
     }
-  }, []);
+  }, [auth.configured, auth.role, auth.user]);
 
   const flushNow = useCallback(() => {
     if (typeof window === "undefined") return;
@@ -342,7 +397,8 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       setSaveStatus("error");
     }
     setSessionActive(false);
-  }, [flushNow]);
+    if (auth.configured) void auth.signOut();
+  }, [auth, flushNow]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -358,6 +414,23 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       if (saveTimeout.current) clearTimeout(saveTimeout.current);
     };
   }, [state, hydrated, persistState]);
+
+  useEffect(() => {
+    if (
+      !hydrated ||
+      saveStatus !== "error" ||
+      !auth.configured ||
+      !auth.user ||
+      auth.role !== "candidate"
+    ) return;
+
+    const retry = window.setTimeout(() => {
+      setSaveStatus("saving");
+      persistState(stateRef.current);
+    }, 3000);
+
+    return () => window.clearTimeout(retry);
+  }, [auth.configured, auth.role, auth.user, hydrated, persistState, saveStatus]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -408,7 +481,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const saveChallengeProgress = useCallback(
     (nodeId: string, challengeProgress: NodeChallengeProgress) => {
       commitState((prev) => {
-        const definition = getElectronicsChallengeProgressDefinition(nodeId);
+        const definition = getChallengeProgressDefinition(nodeId);
         const normalized = definition
           ? normalizeNodeChallengeProgress(challengeProgress, definition)
           : null;
@@ -435,7 +508,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const completeChallenge = useCallback(
     (nodeId: string, challengeProgress: NodeChallengeProgress) => {
       commitState((prev) => {
-        const definition = getElectronicsChallengeProgressDefinition(nodeId);
+        const definition = getChallengeProgressDefinition(nodeId);
         const normalized = definition
           ? normalizeNodeChallengeProgress(challengeProgress, definition)
           : null;
@@ -483,7 +556,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       if (
         prev.submitted ||
         !isValidCandidateProfile(prev.profile) ||
-        isElectronicsChallengeNodeId(nodeId) ||
+        isImplementedChallengeNodeId(nodeId) ||
         computeStatus(nodeId, prev.progress) !== "available"
       ) {
         return prev;
@@ -525,8 +598,9 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     stateRef.current = defaultState;
     setState(defaultState);
     setSessionActive(false);
+    if (auth.configured) void auth.signOut();
     setSaveStatus(storageError ? "error" : "idle");
-  }, []);
+  }, [auth]);
 
   const value = useMemo(
     () => ({
