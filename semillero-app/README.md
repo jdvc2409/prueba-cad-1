@@ -14,7 +14,22 @@ pnpm dev
 bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Abre `http://localhost:3000/semillero-robotica-prueba/`; el prefijo corresponde
+al `basePath` usado por GitHub Pages.
+
+## Backend y autenticación
+
+La aplicación usa Supabase para autenticación por correo/contraseña,
+PostgreSQL, roles (`candidate`, `evaluator`, `admin`) y Storage privado. Sin
+variables de Supabase conserva un modo local para desarrollo.
+
+Consulta [supabase/README.md](./supabase/README.md) para aplicar la migración,
+crear evaluadores y administradores, abrir el banco común de aspirantes y
+configurar GitHub Actions.
+
+La rama de Sistemas e Integración (SI0–SI6) ya utiliza retos interactivos: una
+terminal determinista que no ejecuta shell real y una entrega abierta para el
+reto de deployment.
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 

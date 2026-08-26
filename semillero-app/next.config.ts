@@ -8,6 +8,8 @@ const repoBasePath = "/semillero-robotica-prueba";
 
 const nextConfig: NextConfig = {
   output: "export",
+  trailingSlash: true,
+  allowedDevOrigins: ["127.0.0.1"],
   basePath: repoBasePath,
   assetPrefix: repoBasePath,
   env: {

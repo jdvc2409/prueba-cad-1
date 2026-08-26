@@ -24,6 +24,8 @@ import {
   isValidSemester,
 } from "@/lib/admissions";
 import type { IntroItemType } from "@/lib/types";
+import { useAuth } from "@/lib/auth/AuthContext";
+import { uploadIntroductionFile } from "@/lib/supabase/introductionStore";
 
 const STEPS = [
   { id: 1, label: "Datos" },
@@ -264,8 +266,12 @@ const ghostBtn = "rounded-lg px-5 py-2.5 text-sm font-medium text-muted transiti
 
 function StepDatos({ onNext }: { onNext: () => void }) {
   const { state, updateProfile } = useAppState();
+  const auth = useAuth();
   const [attempted, setAttempted] = useState(false);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [password, setPassword] = useState("");
+  const [authError, setAuthError] = useState("");
+  const [creatingAccount, setCreatingAccount] = useState(false);
   const p = state.profile;
 
   const fullNameValid = Boolean(p.fullName.trim());
@@ -273,7 +279,8 @@ function StepDatos({ onNext }: { onNext: () => void }) {
   const programValid = isAllowedProgram(p.program);
   const semesterValid = isValidSemester(p.semester);
   const averageValid = isValidCumulativeAverage(p.cumulativeAverage);
-  const canContinue = isRequiredProfileComplete(p);
+  const passwordValid = !auth.configured || Boolean(auth.user) || password.length >= 8;
+  const canContinue = isRequiredProfileComplete(p) && passwordValid;
 
   function shouldShowError(field: string, valid: boolean) {
     return !valid && (attempted || touched[field]);
@@ -283,11 +290,24 @@ function StepDatos({ onNext }: { onNext: () => void }) {
     setTouched((current) => ({ ...current, [field]: true }));
   }
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!canContinue) {
       setAttempted(true);
       return;
+    }
+    if (auth.configured && !auth.user) {
+      setCreatingAccount(true);
+      const error = await auth.signUp(
+        p.email.trim().toLowerCase(),
+        password,
+        p.fullName.trim()
+      );
+      setCreatingAccount(false);
+      if (error) {
+        setAuthError(error);
+        return;
+      }
     }
     onNext();
   }
@@ -448,6 +468,29 @@ function StepDatos({ onNext }: { onNext: () => void }) {
             placeholder="20231234"
           />
         </Field>
+        {auth.configured && !auth.user && (
+          <Field
+            id="account-password"
+            label="Contraseña"
+            hint="Mínimo 8 caracteres. La necesitarás para retomar desde otro dispositivo."
+            error={attempted && !passwordValid ? "Usa al menos 8 caracteres." : undefined}
+          >
+            <input
+              id="account-password"
+              name="password"
+              type="password"
+              autoComplete="new-password"
+              minLength={8}
+              required
+              className={`${inputClass} ${attempted && !passwordValid ? invalidInputClass : ""}`}
+              value={password}
+              onChange={(event) => {
+                setPassword(event.target.value);
+                setAuthError("");
+              }}
+            />
+          </Field>
+        )}
       </div>
 
       <div className="my-7 h-px bg-line" />
@@ -547,12 +590,14 @@ function StepDatos({ onNext }: { onNext: () => void }) {
       </fieldset>
 
       <div className="mt-8 flex justify-end">
+        {authError && <p role="alert" className="mr-auto self-center text-xs text-danger">{authError}</p>}
         <button
           type="submit"
+          disabled={creatingAccount}
           aria-disabled={!canContinue}
           className={canContinue ? primaryBtn : disabledBtn}
         >
-          Continuar
+          {creatingAccount ? "Creando cuenta…" : "Continuar"}
         </button>
       </div>
     </form>
@@ -587,6 +632,8 @@ function StepPresentacion({ onBack, onNext }: { onBack: () => void; onNext: () =
   const [draft, setDraft] = useState("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const pendingFileType = useRef<IntroItemType>("file");
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
   const canContinue = state.introduction.length > 0;
 
   function openFilePicker(type: IntroItemType, accept: string) {
@@ -597,11 +644,20 @@ function StepPresentacion({ onBack, onNext }: { onBack: () => void; onNext: () =
     }
   }
 
-  function onFileChosen(e: React.ChangeEvent<HTMLInputElement>) {
+  async function onFileChosen(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const url = URL.createObjectURL(file);
-    addIntroItem({ type: pendingFileType.current, title: file.name, content: url });
+    setUploading(true);
+    setUploadError("");
+    try {
+      const remotePath = await uploadIntroductionFile(file, pendingFileType.current);
+      const content = remotePath ?? URL.createObjectURL(file);
+      addIntroItem({ type: pendingFileType.current, title: file.name, content });
+    } catch (error) {
+      setUploadError(error instanceof Error ? error.message : "No fue posible subir el archivo.");
+    } finally {
+      setUploading(false);
+    }
     e.target.value = "";
   }
 
@@ -622,6 +678,8 @@ function StepPresentacion({ onBack, onNext }: { onBack: () => void; onNext: () =
   return (
     <div>
       <input ref={fileInputRef} type="file" className="hidden" onChange={onFileChosen} />
+      {uploading && <p className="mb-3 text-xs text-cyan">Subiendo archivo privado…</p>}
+      {uploadError && <p role="alert" className="mb-3 text-xs text-danger">{uploadError}</p>}
 
       <p className="text-sm text-ink">
         Antes de ver qué sabes hacer, queremos saber quién eres. Combina

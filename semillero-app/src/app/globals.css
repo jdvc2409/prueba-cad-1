@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+:root {
+  --font-space-grotesk: "Space Grotesk";
+  --font-inter: "Inter";
+}
+
 @theme inline {
   --color-night: #03152f;
   --color-surface: #082653;

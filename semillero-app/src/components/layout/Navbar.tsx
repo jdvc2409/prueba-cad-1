@@ -5,12 +5,15 @@ import { usePathname } from "next/navigation";
 import { getJourneyDestination } from "@/lib/journey";
 import { useAppState } from "@/lib/state/AppStateContext";
 import { SaveIndicator } from "./SaveIndicator";
+import { useAuth } from "@/lib/auth/AuthContext";
 
 const FLOW_CONTEXT = [
   { prefix: "/registro", label: "Registro en curso" },
   { prefix: "/skills", label: "Exploración en curso" },
   { prefix: "/perfil", label: "Resumen del recorrido" },
   { prefix: "/enviar", label: "Envío final" },
+  { prefix: "/evaluador", label: "Banco de aspirantes" },
+  { prefix: "/admin", label: "Administración" },
 ] as const;
 
 function Brand({ linked }: { linked: boolean }) {
@@ -46,6 +49,7 @@ function Brand({ linked }: { linked: boolean }) {
 
 export function Navbar() {
   const pathname = usePathname();
+  const auth = useAuth();
   const { state, hydrated, startSession } = useAppState();
   const isLanding = pathname === "/";
   const isLogin = pathname === "/login";
@@ -114,7 +118,11 @@ export function Navbar() {
               <span className="max-w-28 truncate sm:max-w-none">{routeContext}</span>
             </p>
             <span aria-hidden="true" className="hidden h-4 w-px bg-line sm:block" />
-            <SaveIndicator />
+            {pathname.startsWith("/admin") || pathname.startsWith("/evaluador") ? (
+              <span className="rounded-full border border-line bg-surface/55 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted">
+                {auth.role === "admin" ? "Administrador" : "Evaluador"}
+              </span>
+            ) : <SaveIndicator />}
           </div>
         )}
       </div>
