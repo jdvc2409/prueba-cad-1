@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { BRANCHES, BRANCH_ORDER } from "@/lib/data/branches";
 import { BranchIcon } from "@/components/icons/BranchIcon";
+import { JourneyHelp } from "@/components/tree/JourneyHelp";
 import { branchCompletedCount } from "@/lib/unlock";
 import { SKILL_NODES } from "@/lib/data/nodes";
 import type { BranchId, NodeStatus } from "@/lib/types";
@@ -92,6 +93,7 @@ export function TreeHeader({
       </div>
 
       <div className="flex shrink-0 items-center gap-2">
+        <JourneyHelp />
         <button
           type="button"
           onClick={onToggleOverview}

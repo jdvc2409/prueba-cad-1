@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useReducedMotion } from "framer-motion";
 import { BranchIcon } from "@/components/icons/BranchIcon";
+import { JourneyHelp } from "@/components/tree/JourneyHelp";
 import { BRANCHES, BRANCH_ORDER } from "@/lib/data/branches";
 import { IR_NODE, SKILL_NODES } from "@/lib/data/nodes";
 import {
@@ -433,6 +434,9 @@ export function MobileSkillTree({
       />
 
       <div className="relative mx-auto w-full max-w-lg px-4 pb-6 pt-4">
+        <div className="absolute right-[4.25rem] top-8 z-50">
+          <JourneyHelp panelClassName="-right-12" />
+        </div>
         <header className="overflow-hidden rounded-[26px] border border-line bg-surface/75 shadow-[0_24px_70px_-42px_rgba(53,196,232,0.55)] backdrop-blur-xl">
           <div className="relative p-4">
             <div
