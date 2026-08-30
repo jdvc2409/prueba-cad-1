@@ -2345,7 +2345,7 @@ Cuando cumple el mínimo de exploración, el nodo central empieza a pulsar sutil
 Regla mínima recomendada:
 
 ```text
-5 nodos completados
+4 nodos completados
 +
 progreso en al menos 2 ramas diferentes
 ```
@@ -4075,6 +4075,7 @@ Texto:
 
 ## Preguntas guía
 
+- ¿Por qué quieres pertenecer al Semillero de Robótica?
 - ¿Quién eres y qué parte de tu perfil te gustaría que recordáramos?
 - ¿Qué rama disfrutaste más?
 - ¿Cuál fue el reto que más te costó?
@@ -4085,21 +4086,21 @@ Texto:
 
 ## Formato
 
-Video obligatorio grabado desde la plataforma.
+Video obligatorio adjuntado por el aspirante. El archivo es privado y solo
+puede consultarlo el equipo evaluador.
 
 Duración recomendada:
 
-`1–3 minutos`
+`2–4 minutos`
 
 ## Controles
 
-- `Comenzar grabación`
-- `Detener`
+- `Seleccionar video`
 - `Reproducir`
-- `Volver a grabar`
-- `Usar este video`
+- `Reemplazar video`
+- `Eliminar video`
 
-Se puede configurar fallback de subida manual si el navegador no permite captura.
+Formatos de video compatibles, con un tamaño máximo de 50 MB.
 
 ---
 

@@ -6,6 +6,10 @@ import { useReducedMotion } from "framer-motion";
 import { BranchIcon } from "@/components/icons/BranchIcon";
 import { BRANCHES, BRANCH_ORDER } from "@/lib/data/branches";
 import { IR_NODE, SKILL_NODES } from "@/lib/data/nodes";
+import {
+  MIN_COMPLETED_NODES_TO_FINISH,
+  MIN_EXPLORED_BRANCHES_TO_FINISH,
+} from "@/lib/unlock";
 import type { BranchId, NodeStatus, SkillNodeDef } from "@/lib/types";
 
 export interface MobileSkillTreeProps {
@@ -489,6 +493,23 @@ export function MobileSkillTree({
                 <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-muted">Ramas exploradas</p>
               </div>
             </div>
+
+            <div className={`relative mt-3 rounded-2xl border p-3 ${ready ? "border-ok/35 bg-ok/[0.08]" : "border-cyan/25 bg-cyan/[0.06]"}`}>
+              <p className={`text-[10px] font-bold uppercase tracking-[0.14em] ${ready ? "text-ok" : "text-cyan"}`}>
+                {ready ? "Entrega final habilitada" : "Meta para enviar tu prueba"}
+              </p>
+              <p className="mt-1 text-[11px] leading-4 text-muted">
+                Completa {MIN_COMPLETED_NODES_TO_FINISH} retos en al menos {MIN_EXPLORED_BRANCHES_TO_FINISH} ramas diferentes.
+              </p>
+              <div className="mt-2 flex gap-2 text-[10px] font-semibold">
+                <span className="rounded-lg bg-night/45 px-2.5 py-1.5 text-ice">
+                  {Math.min(completedTotal, MIN_COMPLETED_NODES_TO_FINISH)}/{MIN_COMPLETED_NODES_TO_FINISH} retos
+                </span>
+                <span className="rounded-lg bg-night/45 px-2.5 py-1.5 text-ice">
+                  {Math.min(branchesTotal, MIN_EXPLORED_BRANCHES_TO_FINISH)}/{MIN_EXPLORED_BRANCHES_TO_FINISH} ramas
+                </span>
+              </div>
+            </div>
           </div>
         </header>
 
@@ -651,7 +672,7 @@ export function MobileSkillTree({
             >
               <span>
                 <span className="block text-[9px] font-semibold uppercase tracking-[0.18em] text-ice/75">Tu recorrido está listo</span>
-                Continuar a mi perfil
+                Preparar entrega final
               </span>
               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-night/20 text-lg" aria-hidden="true">
                 →

@@ -250,7 +250,12 @@ function kindLabel(kind: ReviewerAttachment["kind"]): string {
 
 function fieldLabel(fieldId: string | null): string {
   if (!fieldId) return "Evidencia";
-  const labels: Record<string, string> = { schematic: "Esquema", demonstration: "Demostración", code: "Código" };
+  const labels: Record<string, string> = {
+    schematic: "Esquema",
+    demonstration: "Demostración",
+    code: "Código",
+    "final-reflection-video": "Reflexión final · ¿Por qué el Semillero de Robótica?",
+  };
   return labels[fieldId] ?? fieldId.replaceAll("-", " ");
 }
 

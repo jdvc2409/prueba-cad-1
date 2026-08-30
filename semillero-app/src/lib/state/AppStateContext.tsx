@@ -32,6 +32,10 @@ import {
 } from "@/lib/challenges/progress";
 import { clearAllEvidenceFiles } from "@/lib/challenges/evidenceStore";
 import { nodeById } from "@/lib/data/nodes";
+import {
+  FINAL_SUBMISSION_NODE_ID,
+  hasFinalReflectionVideo,
+} from "@/lib/finalSubmission";
 import { useAuth } from "@/lib/auth/AuthContext";
 import {
   loadRemoteJourney,
@@ -574,7 +578,10 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       if (
         prev.submitted ||
         !isValidCandidateProfile(prev.profile) ||
-        !canFinishJourney(prev.progress)
+        !canFinishJourney(prev.progress) ||
+        !hasFinalReflectionVideo(
+          prev.challengeProgress[FINAL_SUBMISSION_NODE_ID]
+        )
       ) {
         return prev;
       }

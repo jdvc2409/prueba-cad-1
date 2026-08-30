@@ -14,9 +14,14 @@ import {
   SYSTEMS_CHALLENGE_PROGRESS,
   getSystemsChallengeProgressDefinition,
 } from "@/lib/challenges/systems/registry";
+import {
+  FINAL_REFLECTION_STEP_ID,
+  FINAL_SUBMISSION_NODE_ID,
+} from "@/lib/finalSubmission";
 
 export const IMPLEMENTED_CHALLENGE_NODE_IDS = [
   "D0",
+  FINAL_SUBMISSION_NODE_ID,
   ...ELECTRONICS_CHALLENGE_NODE_IDS,
   ...MECHANICS_CHALLENGE_NODE_IDS,
   ...SYSTEMS_CHALLENGE_NODE_IDS,
@@ -30,6 +35,11 @@ export const IMPLEMENTED_CHALLENGE_PROGRESS: Readonly<
     stepIds: ["submission"],
     maximumHintsByStep: { submission: 0 },
   },
+  [FINAL_SUBMISSION_NODE_ID]: {
+    nodeId: FINAL_SUBMISSION_NODE_ID,
+    stepIds: [FINAL_REFLECTION_STEP_ID],
+    maximumHintsByStep: { [FINAL_REFLECTION_STEP_ID]: 0 },
+  },
   ...ELECTRONICS_CHALLENGE_PROGRESS,
   ...MECHANICS_CHALLENGE_PROGRESS,
   ...SYSTEMS_CHALLENGE_PROGRESS,
@@ -38,7 +48,9 @@ export const IMPLEMENTED_CHALLENGE_PROGRESS: Readonly<
 export function getChallengeProgressDefinition(
   nodeId: string
 ): ChallengeProgressDefinition | null {
-  if (nodeId === "D0") return IMPLEMENTED_CHALLENGE_PROGRESS.D0;
+  if (nodeId === "D0" || nodeId === FINAL_SUBMISSION_NODE_ID) {
+    return IMPLEMENTED_CHALLENGE_PROGRESS[nodeId];
+  }
   return (
     getElectronicsChallengeProgressDefinition(nodeId) ??
     getMechanicsChallengeProgressDefinition(nodeId) ??

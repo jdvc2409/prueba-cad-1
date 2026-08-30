@@ -1,6 +1,9 @@
 import { ALL_NODES, APPLICATION_NODE_IDS, IR_NODE, SKILL_NODES } from "@/lib/data/nodes";
 import type { NodeStatus } from "@/lib/types";
 
+export const MIN_COMPLETED_NODES_TO_FINISH = 4;
+export const MIN_EXPLORED_BRANCHES_TO_FINISH = 2;
+
 export function computeStatus(
   nodeId: string,
   progress: Record<string, NodeStatus>
@@ -49,7 +52,10 @@ export function branchesExplored(
 }
 
 export function canFinishJourney(progress: Record<string, NodeStatus>): boolean {
-  return completedCount(progress) >= 5 && branchesExplored(progress) >= 2;
+  return (
+    completedCount(progress) >= MIN_COMPLETED_NODES_TO_FINISH &&
+    branchesExplored(progress) >= MIN_EXPLORED_BRANCHES_TO_FINISH
+  );
 }
 
 export function branchProgressPercent(
