@@ -11,11 +11,13 @@ import {
 import { getJourneyDestination } from "@/lib/journey";
 import { EASE_OUT } from "@/lib/motion";
 import { useAppState } from "@/lib/state/AppStateContext";
+import { isTesterEmail, useTesterSession } from "@/lib/tester/session";
 
 export default function LoginPage() {
   const router = useRouter();
   const reduceMotion = Boolean(useReducedMotion());
   const { state, hydrated, sessionActive, startSession } = useAppState();
+  const { activateTester } = useTesterSession();
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const journey = getJourneyDestination(state);
@@ -32,6 +34,12 @@ export default function LoginPage() {
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const normalizedEmail = email.trim().toLowerCase();
+
+    if (isTesterEmail(normalizedEmail)) {
+      activateTester();
+      router.replace("/skills");
+      return;
+    }
 
     if (!hasStoredJourney) {
       setError("No encontramos un recorrido guardado en este dispositivo.");
@@ -168,6 +176,14 @@ export default function LoginPage() {
               Por ahora este acceso recupera únicamente el recorrido guardado en este dispositivo. No usa contraseña ni reemplaza una autenticación real; la conexión institucional y el respaldo en servidor se integrarán después.
             </p>
           </div>
+
+          <Link
+            href="/evaluador/login"
+            className="mt-6 inline-flex min-h-9 items-center gap-1.5 text-xs font-semibold text-cyan hover:text-ice"
+          >
+            ¿Eres evaluador? Accede al panel de evaluación
+            <ArrowIcon />
+          </Link>
 
         </div>
       </motion.section>

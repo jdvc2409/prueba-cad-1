@@ -17,6 +17,13 @@ import { E2Challenge } from "@/components/challenges/electronics/E2Challenge";
 import { E3AChallenge } from "@/components/challenges/electronics/E3AChallenge";
 import { E3BChallenge } from "@/components/challenges/electronics/E3BChallenge";
 import { E4Challenge } from "@/components/challenges/electronics/E4Challenge";
+import { M0Challenge } from "@/components/challenges/mechanics/M0Challenge";
+import { M1AChallenge } from "@/components/challenges/mechanics/M1AChallenge";
+import { M1BChallenge } from "@/components/challenges/mechanics/M1BChallenge";
+import { M2Challenge } from "@/components/challenges/mechanics/M2Challenge";
+import { M3AChallenge } from "@/components/challenges/mechanics/M3AChallenge";
+import { M3BChallenge } from "@/components/challenges/mechanics/M3BChallenge";
+import { M4Challenge } from "@/components/challenges/mechanics/M4Challenge";
 import { BranchIcon } from "@/components/icons/BranchIcon";
 import {
   DELIVERY_FORMAT_LABELS,
@@ -24,7 +31,6 @@ import {
   type DeliveryFormat,
 } from "@/lib/challengePresentation";
 import { BRANCHES } from "@/lib/data/branches";
-import { isElectronicsChallengeNodeId } from "@/lib/challenges/electronics/registry";
 import type {
   NodeChallengeProgress,
   NodeStatus,
@@ -55,6 +61,8 @@ const STATUS_COPY: Record<
   },
 };
 
+function NOOP() {}
+
 interface DetailedChallengeProps {
   savedProgress?: NodeChallengeProgress;
   readOnly: boolean;
@@ -63,7 +71,7 @@ interface DetailedChallengeProps {
   onExit?: () => void;
 }
 
-const ELECTRONICS_CHALLENGE_COMPONENTS: Readonly<
+const DETAILED_CHALLENGE_COMPONENTS: Readonly<
   Record<string, ComponentType<DetailedChallengeProps>>
 > = {
   E0: E0Challenge,
@@ -73,6 +81,13 @@ const ELECTRONICS_CHALLENGE_COMPONENTS: Readonly<
   E3A: E3AChallenge,
   E3B: E3BChallenge,
   E4: E4Challenge,
+  M0: M0Challenge,
+  M1A: M1AChallenge,
+  M1B: M1BChallenge,
+  M2: M2Challenge,
+  M3A: M3AChallenge,
+  M3B: M3BChallenge,
+  M4: M4Challenge,
 };
 
 export function NodeDetailPanel({
@@ -84,6 +99,7 @@ export function NodeDetailPanel({
   challengeProgress,
   onSaveChallengeProgress,
   onCompleteChallenge,
+  testerMode = false,
 }: {
   node: SkillNodeDef | null;
   status: NodeStatus;
@@ -99,6 +115,7 @@ export function NodeDetailPanel({
     nodeId: string,
     progress: NodeChallengeProgress
   ) => void;
+  testerMode?: boolean;
 }) {
   const [mounted, setMounted] = useState(false);
   const dialogRef = useRef<HTMLElement>(null);
@@ -219,7 +236,7 @@ export function NodeDetailPanel({
             exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 24, scale: 0.985 }}
             transition={{ duration: reduceMotion ? 0 : 0.34, ease: [0.16, 1, 0.3, 1] }}
             className={`relative z-10 flex max-h-[calc(100dvh-1rem)] w-full flex-col overflow-hidden rounded-t-3xl border border-line bg-[#081f32] shadow-[0_32px_100px_rgba(0,0,0,0.55)] outline-none sm:max-h-[calc(100dvh-3rem)] sm:rounded-3xl ${
-              isElectronicsChallengeNodeId(node.id) ? "max-w-7xl" : "max-w-5xl"
+              DETAILED_CHALLENGE_COMPONENTS[node.id] ? "max-w-7xl" : "max-w-5xl"
             }`}
           >
             <ChallengeHeader
@@ -240,6 +257,7 @@ export function NodeDetailPanel({
               onClose={onClose}
               reduceMotion={reduceMotion}
               statusCardRef={statusCardRef}
+              testerMode={testerMode}
             />
           </motion.section>
         </div>
@@ -315,6 +333,7 @@ function ChallengeBody({
   onClose,
   reduceMotion,
   statusCardRef,
+  testerMode = false,
 }: {
   node: SkillNodeDef;
   status: NodeStatus;
@@ -332,20 +351,21 @@ function ChallengeBody({
   onClose: () => void;
   reduceMotion: boolean;
   statusCardRef: RefObject<HTMLElement | null>;
+  testerMode?: boolean;
 }) {
   const branch = BRANCHES[node.branchId];
   const presentation = getChallengePresentation(node);
   const statusCopy = STATUS_COPY[status];
-  const DetailedChallenge = ELECTRONICS_CHALLENGE_COMPONENTS[node.id];
+  const DetailedChallenge = DETAILED_CHALLENGE_COMPONENTS[node.id];
 
   if (DetailedChallenge && status !== "locked") {
     return (
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 sm:p-5 lg:p-6">
         <DetailedChallenge
           savedProgress={challengeProgress}
-          readOnly={status === "completed"}
-          onSave={(progress) => onSaveChallengeProgress(node.id, progress)}
-          onComplete={(progress) => onCompleteChallenge(node.id, progress)}
+          readOnly={status === "completed" || testerMode}
+          onSave={testerMode ? NOOP : (progress) => onSaveChallengeProgress(node.id, progress)}
+          onComplete={testerMode ? NOOP : (progress) => onCompleteChallenge(node.id, progress)}
           onExit={onClose}
         />
       </div>
@@ -455,7 +475,7 @@ function ChallengeBody({
               </div>
             )}
 
-            {status === "available" && (
+            {status === "available" && !testerMode && (
               <motion.button
                 type="button"
                 whileHover={reduceMotion ? undefined : { y: -2 }}
@@ -466,6 +486,12 @@ function ChallengeBody({
                 Registrar mi entrega
                 <ArrowIcon />
               </motion.button>
+            )}
+
+            {status === "available" && testerMode && (
+              <div className="mt-6 flex min-h-12 items-center justify-center gap-2 rounded-xl border border-cyan/25 bg-cyan/[0.06] px-4 text-center text-xs font-semibold text-cyan">
+                Modo tester: solo vista, no registra entregas
+              </div>
             )}
 
             {status === "completed" && (

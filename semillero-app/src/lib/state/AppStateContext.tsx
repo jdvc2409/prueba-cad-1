@@ -19,11 +19,10 @@ import type {
 import { canFinishJourney, computeStatus } from "@/lib/unlock";
 import { isValidCandidateProfile } from "@/lib/admissions";
 import {
-  ELECTRONICS_CHALLENGE_NODE_IDS,
-  ELECTRONICS_CHALLENGE_PROGRESS,
-  getElectronicsChallengeProgressDefinition,
-  isElectronicsChallengeNodeId,
-} from "@/lib/challenges/electronics/registry";
+  DETAILED_CHALLENGE_NODE_IDS,
+  getChallengeProgressDefinition,
+  isDetailedChallengeNodeId,
+} from "@/lib/challenges/registry";
 import {
   hasCompletedChallenge,
   isPositiveTimestamp,
@@ -191,10 +190,12 @@ function loadState(): AppState {
     const rawChallenges = isRecord(parsed.challengeProgress)
       ? parsed.challengeProgress
       : {};
-    for (const nodeId of ELECTRONICS_CHALLENGE_NODE_IDS) {
+    for (const nodeId of DETAILED_CHALLENGE_NODE_IDS) {
+      const definition = getChallengeProgressDefinition(nodeId);
+      if (!definition) continue;
       const normalized = normalizeNodeChallengeProgress(
         rawChallenges[nodeId],
-        ELECTRONICS_CHALLENGE_PROGRESS[nodeId]
+        definition
       );
       if (normalized) challengeProgress[nodeId] = normalized;
     }
@@ -212,8 +213,9 @@ function loadState(): AppState {
     // editable journeys, detailed steps are now the source of truth. Reconcile
     // them in tree order so every level still requires all preceding siblings.
     if (!submitted && sourceVersion <= 3) {
-      for (const nodeId of ELECTRONICS_CHALLENGE_NODE_IDS) {
-        const definition = ELECTRONICS_CHALLENGE_PROGRESS[nodeId];
+      for (const nodeId of DETAILED_CHALLENGE_NODE_IDS) {
+        const definition = getChallengeProgressDefinition(nodeId);
+        if (!definition) continue;
         const detailed = challengeProgress[nodeId];
         const requirements = nodeById(nodeId)?.requires ?? [];
         const requirementsComplete = requirements.every(
@@ -408,7 +410,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const saveChallengeProgress = useCallback(
     (nodeId: string, challengeProgress: NodeChallengeProgress) => {
       commitState((prev) => {
-        const definition = getElectronicsChallengeProgressDefinition(nodeId);
+        const definition = getChallengeProgressDefinition(nodeId);
         const normalized = definition
           ? normalizeNodeChallengeProgress(challengeProgress, definition)
           : null;
@@ -435,7 +437,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const completeChallenge = useCallback(
     (nodeId: string, challengeProgress: NodeChallengeProgress) => {
       commitState((prev) => {
-        const definition = getElectronicsChallengeProgressDefinition(nodeId);
+        const definition = getChallengeProgressDefinition(nodeId);
         const normalized = definition
           ? normalizeNodeChallengeProgress(challengeProgress, definition)
           : null;
@@ -483,7 +485,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       if (
         prev.submitted ||
         !isValidCandidateProfile(prev.profile) ||
-        isElectronicsChallengeNodeId(nodeId) ||
+        isDetailedChallengeNodeId(nodeId) ||
         computeStatus(nodeId, prev.progress) !== "available"
       ) {
         return prev;
