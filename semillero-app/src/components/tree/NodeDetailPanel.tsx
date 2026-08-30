@@ -18,6 +18,7 @@ import { E3AChallenge } from "@/components/challenges/electronics/E3AChallenge";
 import { E3BChallenge } from "@/components/challenges/electronics/E3BChallenge";
 import { E4Challenge } from "@/components/challenges/electronics/E4Challenge";
 import { SystemsChallenge } from "@/components/challenges/systems/SystemsChallenge";
+import { QuickDeliveryChallenge } from "@/components/challenges/design/QuickDeliveryChallenge";
 import { BranchIcon } from "@/components/icons/BranchIcon";
 import {
   DELIVERY_FORMAT_LABELS,
@@ -67,6 +68,7 @@ interface DetailedChallengeProps {
 const DETAILED_CHALLENGE_COMPONENTS: Readonly<
   Record<string, ComponentType<DetailedChallengeProps>>
 > = {
+  D0: QuickDeliveryChallenge,
   E0: E0Challenge,
   E1A: E1AChallenge,
   E1B: E1BChallenge,

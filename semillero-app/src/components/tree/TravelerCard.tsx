@@ -18,6 +18,7 @@ export interface TravelerCardData {
   branches: number;
   progress: Record<string, NodeStatus>;
   ready: boolean;
+  reviewMode?: boolean;
   [key: string]: unknown;
 }
 
@@ -35,7 +36,7 @@ const HANDLE_STYLE = {
 };
 
 export function TravelerCard({ data }: NodeProps<TravelerNode>) {
-  const { name, completed, branches, progress, ready } = data;
+  const { name, completed, branches, progress, ready, reviewMode = false } = data;
   const initials = name
     ? name
         .split(" ")
@@ -103,7 +104,7 @@ export function TravelerCard({ data }: NodeProps<TravelerNode>) {
           {name || "Aspirante"}
         </p>
         <p className="mt-0.5 text-[11px] font-medium uppercase tracking-[0.16em] text-cyan">
-          Nodo central
+          {reviewMode ? "Aspirante evaluado" : "Nodo central"}
         </p>
       </div>
 
@@ -150,7 +151,7 @@ export function TravelerCard({ data }: NodeProps<TravelerNode>) {
         </div>
       </div>
 
-      {ready && (
+      {ready && !reviewMode && (
         <Link
           href="/perfil"
           className="nodrag nopan mt-4 inline-flex min-h-9 w-full items-center justify-center rounded-xl bg-gradient-to-r from-tech to-cyan px-3 py-2 text-xs font-bold text-night shadow-[0_8px_22px_rgba(53,196,232,0.2)] transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan"
