@@ -15,6 +15,11 @@ import {
   getSystemsChallengeProgressDefinition,
 } from "@/lib/challenges/systems/registry";
 import {
+  INTEGRATION_CHALLENGE_NODE_IDS,
+  INTEGRATION_CHALLENGE_PROGRESS,
+  getIntegrationChallengeProgressDefinition,
+} from "@/lib/challenges/integration/registry";
+import {
   FINAL_REFLECTION_STEP_ID,
   FINAL_SUBMISSION_NODE_ID,
 } from "@/lib/finalSubmission";
@@ -25,6 +30,7 @@ export const IMPLEMENTED_CHALLENGE_NODE_IDS = [
   ...ELECTRONICS_CHALLENGE_NODE_IDS,
   ...MECHANICS_CHALLENGE_NODE_IDS,
   ...SYSTEMS_CHALLENGE_NODE_IDS,
+  ...INTEGRATION_CHALLENGE_NODE_IDS,
 ] as const;
 
 export const IMPLEMENTED_CHALLENGE_PROGRESS: Readonly<
@@ -43,6 +49,7 @@ export const IMPLEMENTED_CHALLENGE_PROGRESS: Readonly<
   ...ELECTRONICS_CHALLENGE_PROGRESS,
   ...MECHANICS_CHALLENGE_PROGRESS,
   ...SYSTEMS_CHALLENGE_PROGRESS,
+  ...INTEGRATION_CHALLENGE_PROGRESS,
 };
 
 export function getChallengeProgressDefinition(
@@ -54,7 +61,8 @@ export function getChallengeProgressDefinition(
   return (
     getElectronicsChallengeProgressDefinition(nodeId) ??
     getMechanicsChallengeProgressDefinition(nodeId) ??
-    getSystemsChallengeProgressDefinition(nodeId)
+    getSystemsChallengeProgressDefinition(nodeId) ??
+    getIntegrationChallengeProgressDefinition(nodeId)
   );
 }
 

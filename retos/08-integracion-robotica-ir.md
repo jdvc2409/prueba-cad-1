@@ -50,16 +50,27 @@ S2 (Software) · A2 (IA) · SI2 (Sistemas)
     - Electrónica + Software: Sensor → ESP32 → Comunicación → Interfaz
     - Control + Electrónica + Software: Sensor → Controlador → PWM → Motor (ciclo)
 
-### Por definir
+### Implementación actual
 
-- **Tipo de reto sugerido:** J (reto libre, múltiples evidencias)
-- **Regla de desbloqueo final:** _(completar — ¿se deja "≥2 de los 7" tal cual, o se agrega también la "ruta especialista"?)_
-- **Enunciado final:** _(completar)_
-- **Qué debe entregar exactamente:** _(completar — de la lista de 9 entregables sugeridos, ¿cuáles son obligatorios?)_
-- **Ejemplos de combinación a mostrar en la interfaz:** _(completar — ¿se muestran los 4 ejemplos de la spec, otros, o ninguno?)_
-- **Pistas:** _(completar, opcional)_
-- **Feedback al entregar:** _(completar)_
-- **Notas para el evaluador:** _(completar — este es probablemente el reto que más revisión humana necesita de todo el árbol)_
+- **Tipo de reto:** J (proyecto abierto con revisión humana).
+- **Regla de desbloqueo:** nivel de Aplicación completado en dos ramas
+  distintas; es decir, al menos dos de `D2`, `M2`, `E2`, `C2`, `S2`, `A2`
+  y `SI2`.
+- **Enunciado:** formular un proyecto de investigación en robótica que integre
+  al menos dos áreas y pueda validarse mediante evidencia observable.
+- **Etapas obligatorias:**
+  1. contexto, problema, pregunta de investigación y justificación;
+  2. objetivo general, mínimo tres objetivos específicos con indicadores e
+     hipótesis;
+  3. solución, arquitectura del sistema, aporte o novedad y diagrama;
+  4. plan de acción de mínimo cuatro fases y recursos necesarios;
+  5. métricas, riesgos y mitigaciones, ética/seguridad, impacto, limitaciones
+     y mínimo dos fuentes.
+- **Evidencia:** diagrama de arquitectura obligatorio; documentos de apoyo
+  opcionales.
+- **Evaluación:** no existe una respuesta automática correcta. La plataforma
+  valida que la propuesta esté completa, guarda una rúbrica preliminar y la
+  remite al evaluador para revisión humana.
 
 ---
 

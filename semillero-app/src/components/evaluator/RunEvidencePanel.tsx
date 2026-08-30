@@ -255,6 +255,8 @@ function fieldLabel(fieldId: string | null): string {
     demonstration: "Demostración",
     code: "Código",
     "final-reflection-video": "Reflexión final · ¿Por qué el Semillero de Robótica?",
+    "research-diagram": "IR · Diagrama de investigación",
+    "research-proposal": "IR · Documento de apoyo",
   };
   return labels[fieldId] ?? fieldId.replaceAll("-", " ");
 }

@@ -26,6 +26,7 @@ import { M2Challenge } from "@/components/challenges/mechanics/M2Challenge";
 import { M3AChallenge } from "@/components/challenges/mechanics/M3AChallenge";
 import { M3BChallenge } from "@/components/challenges/mechanics/M3BChallenge";
 import { M4Challenge } from "@/components/challenges/mechanics/M4Challenge";
+import { IRChallenge } from "@/components/challenges/integration/IRChallenge";
 import { BranchIcon } from "@/components/icons/BranchIcon";
 import {
   DELIVERY_FORMAT_LABELS,
@@ -101,6 +102,7 @@ const DETAILED_CHALLENGE_COMPONENTS: Readonly<
   M3A: M3AChallenge,
   M3B: M3BChallenge,
   M4: M4Challenge,
+  IR: IRChallenge,
 };
 
 export function NodeDetailPanel({
