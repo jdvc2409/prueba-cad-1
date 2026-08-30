@@ -22,6 +22,7 @@ export interface SkillNodeData {
   targetPosition?: Position;
   sourcePosition?: Position;
   onOpen: (id: string) => void;
+  reviewMode?: boolean;
   [key: string]: unknown;
 }
 
@@ -96,6 +97,7 @@ export function SkillNodeCard({ data }: NodeProps) {
     isIR = false,
     targetPosition = Position.Top,
     sourcePosition = Position.Bottom,
+    reviewMode = false,
   } = d;
   const [tooltipVisible, setTooltipVisible] = useState(false);
   const [justUnlocked, setJustUnlocked] = useState(false);
@@ -124,8 +126,8 @@ export function SkillNodeCard({ data }: NodeProps) {
     status === "completed"
       ? "Completado"
       : status === "available"
-        ? "Listo"
-        : "Bloqueado";
+        ? reviewMode ? "Con actividad" : "Listo"
+        : reviewMode ? "Sin actividad" : "Bloqueado";
 
   const bodyClass =
     status === "completed"
@@ -195,7 +197,13 @@ export function SkillNodeCard({ data }: NodeProps) {
         >
           <p className="text-xs font-semibold leading-4 text-ink">{def.title}</p>
           <p className="mt-1 text-[11px] leading-4 text-muted">
-            {status === "completed"
+            {reviewMode
+              ? status === "completed"
+                ? "El aspirante completó este reto. Abre sus resultados."
+                : status === "available"
+                  ? "Hay progreso guardado. Abre los resultados disponibles."
+                  : "El aspirante todavía no registra actividad en este reto."
+              : status === "completed"
               ? "Reto completado. Puedes volver a revisar el detalle."
               : status === "available"
                 ? "Reto listo. Ábrelo para ver las instrucciones."
