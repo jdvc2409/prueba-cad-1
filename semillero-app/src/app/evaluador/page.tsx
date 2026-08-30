@@ -7,6 +7,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { AppState, NodeChallengeProgress } from "@/lib/types";
 import { RunEvidencePanel } from "@/components/evaluator/RunEvidencePanel";
 import { EvaluatorSkillTree } from "@/components/evaluator/EvaluatorSkillTree";
+import { useEvaluatorSession } from "@/lib/evaluator/session";
 
 type RunStatus = "draft" | "submitted" | "evaluated";
 type StatusFilter = "all" | RunStatus;
@@ -31,6 +32,7 @@ interface CandidateRun {
 export default function EvaluadorPage() {
   const router = useRouter();
   const auth = useAuth();
+  const localEvaluator = useEvaluatorSession();
   const [runs, setRuns] = useState<CandidateRun[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filter, setFilter] = useState<StatusFilter>("submitted");
@@ -59,12 +61,25 @@ export default function EvaluadorPage() {
   }, [auth.role, auth.user]);
 
   useEffect(() => {
-    if (auth.loading) return;
+    if (auth.loading || !localEvaluator.hydrated) return;
+    if (!auth.configured) {
+      if (!localEvaluator.evaluator) router.replace("/evaluador/login");
+      return;
+    }
     if (!auth.user) router.replace("/login");
     else if (auth.role === "candidate") router.replace("/skills");
     else if (auth.role === "admin") router.replace("/admin");
     else if (auth.role === "evaluator") void Promise.resolve().then(loadRuns);
-  }, [auth.loading, auth.role, auth.user, loadRuns, router]);
+  }, [
+    auth.configured,
+    auth.loading,
+    auth.role,
+    auth.user,
+    loadRuns,
+    localEvaluator.evaluator,
+    localEvaluator.hydrated,
+    router,
+  ]);
 
   const counts = useMemo(() => ({
     all: runs.length,
@@ -88,8 +103,22 @@ export default function EvaluadorPage() {
     : visibleRuns[0]?.id ?? null;
   const selected = visibleRuns.find((run) => run.id === effectiveSelectedId) ?? null;
 
-  if (auth.loading || (loading && runs.length === 0)) return <PanelLoading label="Cargando aspirantes…" />;
-  if (!auth.configured) return <EmptyState title="Supabase no está configurado" body="Conecta el proyecto para abrir el panel de evaluación." />;
+  if (auth.loading || !localEvaluator.hydrated) {
+    return <PanelLoading label="Cargando aspirantes…" />;
+  }
+  if (!auth.configured) {
+    if (!localEvaluator.evaluator) return <PanelLoading label="Abriendo acceso de evaluador…" />;
+    return (
+      <LocalEvaluatorDashboard
+        username={localEvaluator.evaluator.username}
+        onLogout={() => {
+          localEvaluator.logout();
+          router.replace("/evaluador/login");
+        }}
+      />
+    );
+  }
+  if (loading && runs.length === 0) return <PanelLoading label="Cargando aspirantes…" />;
 
   return (
     <div className="min-h-[calc(100svh-4rem)] w-full px-4 py-7 sm:px-6 lg:px-7 2xl:px-9">
@@ -130,6 +159,40 @@ export default function EvaluadorPage() {
         </aside>
         <main className="min-w-0">{selected ? <RunDetail run={selected} evaluatorId={auth.user?.id ?? ""} onSaved={loadRuns} /> : <EmptyState title="Selecciona un aspirante" body="El detalle del recorrido aparecerá aquí." />}</main>
       </div>
+    </div>
+  );
+}
+
+function LocalEvaluatorDashboard({
+  username,
+  onLogout,
+}: {
+  username: string;
+  onLogout: () => void;
+}) {
+  return (
+    <div className="min-h-[calc(100svh-4rem)] w-full px-5 py-10 sm:px-8">
+      <header className="mx-auto flex max-w-5xl flex-wrap items-start justify-between gap-5 border-b border-line pb-6">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan">Modo local</p>
+          <h1 className="mt-2 font-heading text-3xl font-semibold text-ink">Panel de evaluación</h1>
+          <p className="mt-2 text-sm text-muted">Sesión activa: {username}</p>
+        </div>
+        <button
+          type="button"
+          onClick={onLogout}
+          className="min-h-10 rounded-lg border border-line px-4 text-xs font-semibold text-muted transition-colors hover:border-cyan/45 hover:text-ink"
+        >
+          Cerrar sesión
+        </button>
+      </header>
+      <section className="mx-auto mt-8 max-w-5xl rounded-2xl border border-line bg-surface/70 p-6">
+        <p className="text-sm font-semibold text-ice">Todavía no hay candidatos sincronizados</p>
+        <p className="mt-2 text-sm leading-6 text-muted">
+          El panel local permite validar el acceso de evaluador. Configura Supabase para consultar recorridos enviados,
+          evidencias y evaluaciones compartidas.
+        </p>
+      </section>
     </div>
   );
 }
