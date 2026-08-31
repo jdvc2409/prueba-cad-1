@@ -151,7 +151,7 @@ export function D1BChallenge({ savedProgress, readOnly, onSave, onComplete, onEx
               value={draft.value}
               disabled={readOnly || solved}
               onChange={(e) => changeValue(e.target.value)}
-              placeholder="Ej. 309300"
+              placeholder="Ej. 123456789"
               className="w-full rounded-lg border border-white/15 bg-[#03152f] px-3 py-2 font-mono text-sm text-white outline-none focus:border-[#8CA0F0] disabled:opacity-60"
               style={{ borderColor: undefined }}
             />
