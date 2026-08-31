@@ -34,8 +34,8 @@ function n(
 
 export const SKILL_NODES: SkillNodeDef[] = [
   // Diseño / CAD
-  n("D0", "design", 0, 0, "Entrega rápida", "fundamentos",
-    "Comparte cualquier archivo relacionado con una idea, proyecto o aprendizaje y cuéntanos brevemente qué representa.", []),
+  n("D0", "design", 0, 0, "Identifica las operaciones", "fundamentos",
+    "Observa una pieza terminada y selecciona qué operaciones de modelado se usaron para construirla.", []),
   n("D1A", "design", 1, -1, "Geometría bajo control", "sub",
     "Observa varios croquis e identifica cuál está completamente definido y qué restricción falta.", ["D0"]),
   n("D1B", "design", 1, 1, "El material también diseña", "sub",
