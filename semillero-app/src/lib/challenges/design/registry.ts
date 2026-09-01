@@ -1,9 +1,11 @@
 import { D0_STEP_IDS } from "@/lib/challenges/design/d0";
 import { D1A_STEP_IDS } from "@/lib/challenges/design/d1a";
 import { D1B_STEP_IDS } from "@/lib/challenges/design/d1b";
+import { D2_STEP_IDS } from "@/lib/challenges/design/d2";
+import { D3A_STEP_IDS } from "@/lib/challenges/design/d3a";
 import type { ChallengeProgressDefinition } from "@/lib/challenges/progress";
 
-export const DESIGN_CHALLENGE_NODE_IDS = ["D0", "D1A", "D1B"] as const;
+export const DESIGN_CHALLENGE_NODE_IDS = ["D0", "D1A", "D1B", "D2", "D3A"] as const;
 
 function definition(nodeId: string, stepIds: readonly string[]): ChallengeProgressDefinition {
   return {
@@ -17,6 +19,8 @@ export const DESIGN_CHALLENGE_PROGRESS: Readonly<Record<string, ChallengeProgres
   D0: definition("D0", D0_STEP_IDS),
   D1A: definition("D1A", D1A_STEP_IDS),
   D1B: definition("D1B", D1B_STEP_IDS),
+  D2: definition("D2", D2_STEP_IDS),
+  D3A: definition("D3A", D3A_STEP_IDS),
 };
 
 export function getDesignChallengeProgressDefinition(nodeId: string): ChallengeProgressDefinition | null {
