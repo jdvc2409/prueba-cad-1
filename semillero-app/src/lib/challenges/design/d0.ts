@@ -59,7 +59,7 @@ export const D0_CHALLENGE = {
       eyebrow: "Paso único",
       title: "¿Qué operaciones se usaron?",
       statement:
-        "Observa esta pieza terminada. Selecciona todas las operaciones de modelado que se usaron para construirla.",
+        "Seleccione las operaciones con las que se puede hacer esta pieza.",
       image: {
         src: "/challenges/design/d0/d0-operations.png",
         alt: "Escuadra con pared en arco y esquina de la base biselada",
