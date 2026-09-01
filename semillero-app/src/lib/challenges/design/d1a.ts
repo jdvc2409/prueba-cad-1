@@ -34,7 +34,13 @@ export const D1A_OPTIONS: readonly D1AOption[] = [
 ];
 
 /** Cualquiera de estas, sola o combinada, deja el sketch resuelto. */
-export const D1A_VALID_ANY = ["horizontal", "perpendicular", "cota"] as const;
+export const D1A_VALID_ANY = [
+  "horizontal",
+  "perpendicular",
+  "cota",
+  "paralelo",
+  "igual",
+] as const;
 
 export const D1A_CHALLENGE = {
   id: "D1A",
@@ -63,7 +69,7 @@ export const D1A_CHALLENGE = {
       ] as const,
       feedback: {
         correct:
-          "Correcto. Cualquiera de las tres — Horizontal, Perpendicular o Cota — resuelve el sketch.",
+          "Correcto. Cualquiera de estas resuelve el sketch: Horizontal o Paralelo (la arista queda horizontal), Perpendicular (respecto a un lado vertical), Igual (iguala la longitud de los dos lados verticales), o Cota (fija la altura del punto libre).",
         incorrect:
           "Aún no. Piensa en qué le falta específicamente a esa arista libre para quedar fija: dirección o longitud.",
       },
