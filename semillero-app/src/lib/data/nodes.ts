@@ -40,8 +40,6 @@ export const SKILL_NODES: SkillNodeDef[] = [
     "Observa varios croquis e identifica cuál está completamente definido y qué restricción falta.", ["D0"]),
   n("D1B", "design", 1, 1, "El material también diseña", "sub",
     "Asigna un material real a tu pieza (por ejemplo aluminio 6061) y calcula su masa, volumen y centro de masa.", ["D0"]),
-  n("D3A", "design", 2, 0, "Modela y recalcula", "aplicacion",
-    "Modela una pieza y ve modificándola paso a paso, recalculando su masa en cada versión.", ["D1A", "D1B"]),
 
   // Mecánica
   n("M0", "mechanics", 0, 0, "Piensa como un mecanismo", "fundamentos",
