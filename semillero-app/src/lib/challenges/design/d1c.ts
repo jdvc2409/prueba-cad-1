@@ -50,7 +50,7 @@ export interface D1CBaseStep {
   readonly eyebrow: string;
   readonly title: string;
   readonly statement: string;
-  readonly image: D1CImage;
+  readonly image?: D1CImage;
   readonly hints: readonly string[];
   readonly feedback: D1CFeedback;
 }
@@ -190,10 +190,6 @@ export const D1C_STEPS: Readonly<Record<D1CStepId, D1CStepDefinition>> = {
     title: "Reporta la masa total",
     statement:
       `Modifica la pieza del paso anterior. ${TOOLBLOCK_CONFIG_NOTE} Nuevos parámetros: A = 84.00, B = 59.00, C = 45.00. Todas las demás dimensiones permanecen iguales a las del paso anterior. ¿Cuál es la masa total de la pieza en gramos?`,
-    image: {
-      src: "/challenges/design/d1c/d1c-toolblock-step2.png",
-      alt: "Plano acotado del Tool Block, Step 2, con los parámetros A, B y C actualizados",
-    },
     hints: [
       "Solo cambian A, B y C; el resto de la geometría (agujeros, redondeos, etc.) se mantiene igual al Step 1.",
       "Vuelve a verificar la masa después de actualizar las tres cotas — un solo parámetro desactualizado altera el resultado.",

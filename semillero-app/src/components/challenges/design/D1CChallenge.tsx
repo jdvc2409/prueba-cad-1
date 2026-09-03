@@ -250,7 +250,9 @@ export function D1CChallenge({ savedProgress, readOnly, onSave, onComplete, onEx
           </header>
 
           <div className="space-y-6">
-            <DesignVisual src={stepDefinition.image.src} alt={stepDefinition.image.alt} />
+            {stepDefinition.image && (
+              <DesignVisual src={stepDefinition.image.src} alt={stepDefinition.image.alt} />
+            )}
 
             {stepDefinition.kind === "single_choice" ? (
               <DesignOptionGrid
