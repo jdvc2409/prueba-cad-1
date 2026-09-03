@@ -21,6 +21,7 @@ import { SystemsChallenge } from "@/components/challenges/systems/SystemsChallen
 import { D0Challenge } from "@/components/challenges/design/D0Challenge";
 import { D1AChallenge } from "@/components/challenges/design/D1AChallenge";
 import { D1BChallenge } from "@/components/challenges/design/D1BChallenge";
+import { D1CChallenge } from "@/components/challenges/design/D1CChallenge";
 import { M0Challenge } from "@/components/challenges/mechanics/M0Challenge";
 import { M1AChallenge } from "@/components/challenges/mechanics/M1AChallenge";
 import { M1BChallenge } from "@/components/challenges/mechanics/M1BChallenge";
@@ -83,6 +84,7 @@ const DETAILED_CHALLENGE_COMPONENTS: Readonly<
   D0: D0Challenge,
   D1A: D1AChallenge,
   D1B: D1BChallenge,
+  D1C: D1CChallenge,
   E0: E0Challenge,
   E1A: E1AChallenge,
   E1B: E1BChallenge,
