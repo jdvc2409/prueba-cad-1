@@ -102,7 +102,7 @@ export const D1C_STEPS: Readonly<Record<D1CStepId, D1CStepDefinition>> = {
     eyebrow: "Paso 1 de 6 · Vistas de dibujo",
     title: "¿Qué vista se debe insertar?",
     statement:
-      "Para crear la vista de dibujo B, es necesario dibujar una spline, como se muestra, sobre la vista de dibujo A. ¿Qué tipo de vista de SOLIDWORKS se debe insertar?",
+      "Para crear la vista de dibujo B, es necesario dibujar una spline, como se muestra, sobre la vista de dibujo A. ¿Qué tipo de vista se debe insertar?",
     image: {
       src: "/challenges/design/d1c/d1c-view-1.png",
       alt: "Vista de dibujo A con una spline dibujada sobre ella, usada para generar la vista de dibujo B",
@@ -131,7 +131,7 @@ export const D1C_STEPS: Readonly<Record<D1CStepId, D1CStepDefinition>> = {
     eyebrow: "Paso 2 de 6 · Vistas de dibujo",
     title: "¿Qué vista se debe insertar?",
     statement:
-      "Para crear la vista de dibujo B, es necesario dibujar una spline, como se muestra, sobre la vista de dibujo A. ¿Qué tipo de vista de SOLIDWORKS se debe insertar?",
+      "Para crear la vista de dibujo B, es necesario dibujar una spline, como se muestra, sobre la vista de dibujo A. ¿Qué tipo de vista se debe insertar?",
     image: {
       src: "/challenges/design/d1c/d1c-view-2.png",
       alt: "Vista de dibujo A con una spline dibujada sobre ella para revelar geometría interna en la vista de dibujo B",
@@ -160,7 +160,7 @@ export const D1C_STEPS: Readonly<Record<D1CStepId, D1CStepDefinition>> = {
     eyebrow: "Paso 3 de 6 · Tool Block, Step 1",
     title: "¿Cuál es la masa total de la pieza?",
     statement:
-      `Construye la pieza en SOLIDWORKS utilizando los planos proporcionados. ${TOOLBLOCK_CONFIG_NOTE} Parámetros: A = 81.00, B = 57.00, C = 43.00. ¿Cuál es la masa total de la pieza en gramos?`,
+      `Construye la pieza en el software CAD de tu preferencia (SOLIDWORKS, Fusion 360 u otro equivalente) utilizando los planos proporcionados. ${TOOLBLOCK_CONFIG_NOTE} Parámetros: A = 81.00, B = 57.00, C = 43.00. ¿Cuál es la masa total de la pieza en gramos?`,
     image: {
       src: "/challenges/design/d1c/d1c-toolblock-step1.png",
       alt: "Plano acotado del Tool Block, Step 1, con parámetros A, B y C",
